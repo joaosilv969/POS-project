@@ -9,6 +9,88 @@ Aplicação web (backend + frontend) para gestão de:
 
 O projeto é intencionalmente simples: a maior parte da lógica está concentrada em `src/server.js` (rotas + queries), com EJS para as views.
 
+## Instalação no Ubuntu
+
+### 1) Instalar Docker Engine
+
+No Ubuntu 22.04 / 24.04, execute:
+
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl gnupg lsb-release
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+### 2) Verificar a instalação
+
+```bash
+sudo docker version
+sudo docker compose version
+```
+
+### 3) Usar Docker sem sudo (opcional)
+
+```bash
+sudo usermod -aG docker $USER
+```
+
+Depois encerrar sessão e voltar a entrar para que o grupo `docker` seja aplicado.
+
+## Como correr o projeto
+
+### 1) Clonar / preparar o repositório
+
+```bash
+git clone <repo> your-project
+cd your-project
+```
+
+### 2) Criar `.env`
+
+```bash
+cp .env.example .env
+```
+
+Edite `.env` se quiser alterar portas, credenciais ou configurações de volume.
+
+### 3) Subir os serviços com Docker Compose
+
+O Compose recomendado usa `docker-compose.yaml` com volumes nomeados:
+
+```bash
+docker compose -f docker-compose.yaml up -d --build --remove-orphans
+```
+
+Se preferir, também pode usar `docker-compose.yml` diretamente:
+
+```bash
+docker compose -f docker-compose.yml up -d --build --remove-orphans
+```
+
+### 4) Acessar a aplicação
+
+- App: `http://localhost:8080`
+- phpMyAdmin: `http://localhost:8081`
+
+### 5) Parar e remover containers
+
+```bash
+docker compose -f docker-compose.yaml down
+```
+
+## Acessos iniciais (seed)
+
+- Admin: `admin@bar.local` / `admin123`
+- Funcionário: `funcionario@bar.local` / `funcionario123`
+
+---
+
 ## Stack
 
 - Node.js + Express
@@ -18,30 +100,6 @@ O projeto é intencionalmente simples: a maior parte da lógica está concentrad
 - Sessões: `express-session` + `express-mysql-session`
 - Uploads: `multer` (persistidos num volume)
 - Docker Compose (modo recomendado)
-
-## Como correr (Docker Compose)
-
-1) Criar `.env` (opcional, mas recomendado):
-
-```bash
-cp .env.example .env
-```
-
-2) Subir os serviços com o Compose recomendado (volumes nomeados):
-
-```bash
-docker compose -f docker-compose.yaml up -d --build --remove-orphans
-```
-
-3) Abrir:
-
-- App: `http://localhost:8080`
-- phpMyAdmin: `http://localhost:8081`
-
-### Acessos iniciais (seed)
-
-- Admin: `admin@bar.local` / `admin123`
-- Funcionário: `funcionario@bar.local` / `funcionario123`
 
 ## Variáveis de ambiente (.env)
 
