@@ -1,4 +1,5 @@
 const VALID_AREAS = new Set(["all", "bar", "merchandising"]);
+const VALID_DUES_STATUSES = new Set(["all", "paid", "partial", "unpaid"]);
 
 function isDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
@@ -52,6 +53,52 @@ function preserveReportQuery(filters) {
   return params.toString();
 }
 
+function normalizeDuesReportFilters(query = {}, fallbackYear = new Date().getFullYear()) {
+  const year = Number.parseInt(query.year, 10);
+  const normalizedYear = Number.isFinite(year) && year >= 2000 && year <= 2100 ? year : fallbackYear;
+  const status = VALID_DUES_STATUSES.has(query.status) ? query.status : "all";
+  const search = String(query.q || "").trim().slice(0, 120);
+
+  return {
+    year: normalizedYear,
+    startDate: isDate(query.start_date) ? query.start_date : "",
+    endDate: isDate(query.end_date) ? query.end_date : "",
+    paymentMethodId: positiveInteger(query.payment_method_id),
+    status,
+    search,
+  };
+}
+
+function preserveDuesReportQuery(filters) {
+  const params = new URLSearchParams();
+
+  if (filters.year) {
+    params.set("year", String(filters.year));
+  }
+
+  if (filters.startDate) {
+    params.set("start_date", filters.startDate);
+  }
+
+  if (filters.endDate) {
+    params.set("end_date", filters.endDate);
+  }
+
+  if (filters.paymentMethodId) {
+    params.set("payment_method_id", String(filters.paymentMethodId));
+  }
+
+  if (filters.status && filters.status !== "all") {
+    params.set("status", filters.status);
+  }
+
+  if (filters.search) {
+    params.set("q", filters.search);
+  }
+
+  return params.toString();
+}
+
 function makePercent(value, max) {
   const number = Number(value || 0);
   const maximum = Number(max || 0);
@@ -88,7 +135,9 @@ function rowsToCsv(columns, rows) {
 module.exports = {
   csvEscape,
   makePercent,
+  normalizeDuesReportFilters,
   normalizeReportFilters,
+  preserveDuesReportQuery,
   preserveReportQuery,
   rowsToCsv,
 };

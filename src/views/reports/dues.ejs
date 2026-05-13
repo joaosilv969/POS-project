@@ -2,135 +2,267 @@
   <div>
     <p class="eyebrow">Análise</p>
     <h1>Relatório de Cotas</h1>
-    <p class="text-muted">Ano <strong><%= year %></strong></p>
+    <p class="text-muted">Ano <strong><%= year %></strong> · cobrança <strong><%= collectionRate %>%</strong></p>
   </div>
-  <a class="button secondary" href="/reports">Voltar</a>
+  <div class="button-row">
+    <a class="button secondary" href="/reports">Analytics</a>
+    <a class="button secondary" href="/dues">Cotas</a>
+  </div>
 </section>
 
-<form class="filter-bar" method="get" action="/reports/dues">
-  <label>
-    Ano
-    <input type="number" name="year" min="2000" max="2100" value="<%= year %>" />
-  </label>
-  <label>
-    Inicio
-    <input type="date" name="start_date" value="<%= filters.start_date || '' %>" />
-  </label>
-  <label>
-    Fim
-    <input type="date" name="end_date" value="<%= filters.end_date || '' %>" />
-  </label>
-  <button class="button secondary" type="submit">Filtrar</button>
-  <a class="button ghost" href="/reports/dues?year=<%= year %>">Limpar datas</a>
+<form class="panel report-filter-panel" method="get" action="/reports/dues">
+  <div class="report-filter-grid">
+    <label>
+      Ano
+      <input type="number" name="year" min="2000" max="2100" value="<%= year %>" />
+    </label>
+    <label>
+      Início
+      <input type="date" name="start_date" value="<%= filters.startDate %>" />
+    </label>
+    <label>
+      Fim
+      <input type="date" name="end_date" value="<%= filters.endDate %>" />
+    </label>
+    <label>
+      Pagamento
+      <select name="payment_method_id">
+        <option value="">Todos</option>
+        <% paymentMethodOptions.forEach((method) => { %>
+          <option value="<%= method.id %>" <%= filters.paymentMethodId === method.id ? 'selected' : '' %>><%= method.name %></option>
+        <% }) %>
+      </select>
+    </label>
+    <label>
+      Estado
+      <select name="status">
+        <option value="all" <%= filters.status === 'all' ? 'selected' : '' %>>Todos</option>
+        <option value="paid" <%= filters.status === 'paid' ? 'selected' : '' %>>Pagos</option>
+        <option value="partial" <%= filters.status === 'partial' ? 'selected' : '' %>>Parciais</option>
+        <option value="unpaid" <%= filters.status === 'unpaid' ? 'selected' : '' %>>Sem pagamento</option>
+      </select>
+    </label>
+    <label>
+      Sócio
+      <input type="search" name="q" value="<%= filters.search %>" placeholder="Nº ou nome" />
+    </label>
+  </div>
+  <div class="form-actions">
+    <button class="button secondary" type="submit">Filtrar</button>
+    <a class="button ghost" href="/reports/dues?year=<%= year %>">Limpar</a>
+  </div>
 </form>
 
-<section class="report-grid">
-  <article class="panel">
-    <div class="panel-header"><h2>Total</h2></div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Pagamentos</th><th>Total</th></tr></thead>
-        <tbody>
-          <tr>
-            <td><%= duesTotal.payments_count || 0 %></td>
-            <td><%= money(duesTotal.total || 0) %></td>
-          </tr>
-        </tbody>
-      </table>
+<section class="analytics-kpis">
+  <article class="stat-card">
+    <span>Sócios ativos</span>
+    <strong><%= Number(memberStatusCounts.paid_members || 0) + Number(memberStatusCounts.partial_members || 0) + Number(memberStatusCounts.unpaid_members || 0) %></strong>
+  </article>
+  <article class="stat-card">
+    <span>Esperado</span>
+    <strong><%= money(expectedTotal || 0) %></strong>
+  </article>
+  <article class="stat-card">
+    <span>Recebido</span>
+    <strong><%= money(paidTotal || 0) %></strong>
+  </article>
+  <article class="stat-card warning">
+    <span>Em falta</span>
+    <strong><%= money(outstandingTotal || 0) %></strong>
+  </article>
+  <article class="stat-card">
+    <span>Cobrança</span>
+    <strong><%= collectionRate %>%</strong>
+  </article>
+  <article class="stat-card warning">
+    <span>Sem pagamento</span>
+    <strong><%= memberStatusCounts.unpaid_members || 0 %></strong>
+  </article>
+</section>
+
+<section class="analytics-grid">
+  <article class="panel analytics-wide">
+    <div class="panel-header">
+      <h2>Progresso de cobrança</h2>
+      <a class="button ghost" href="<%= exportLink('outstanding') %>">CSV saldos</a>
+    </div>
+    <div class="dues-progress">
+      <div class="dues-progress-track">
+        <span style="width:<%= collectionRate %>%"></span>
+      </div>
+      <div class="dues-progress-meta">
+        <strong><%= money(paidTotal || 0) %></strong>
+        <span>de <%= money(expectedTotal || 0) %></span>
+        <b><%= money(outstandingTotal || 0) %> em falta</b>
+      </div>
     </div>
   </article>
 
   <article class="panel">
-    <div class="panel-header"><h2>Esperado</h2></div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Valor/ano</th><th>Total esperado</th><th>Em falta</th></tr></thead>
-        <tbody>
-          <tr>
-            <td><%= money(expectedAmount || 0) %></td>
-            <td><%= money(expectedTotal || 0) %></td>
-            <td><%= money(outstandingTotal || 0) %></td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="panel-header">
+      <h2>Estados dos sócios</h2>
+    </div>
+    <div class="bar-list">
+      <div class="bar-row">
+        <div><strong>Pagos</strong><span>Quota completa</span></div>
+        <div class="bar-track"><span style="width:<%= makePercent(memberStatusCounts.paid_members, Number(memberStatusCounts.paid_members || 0) + Number(memberStatusCounts.partial_members || 0) + Number(memberStatusCounts.unpaid_members || 0)) %>%"></span></div>
+        <b><%= memberStatusCounts.paid_members || 0 %></b>
+      </div>
+      <div class="bar-row">
+        <div><strong>Parciais</strong><span>Saldo em falta</span></div>
+        <div class="bar-track"><span style="width:<%= makePercent(memberStatusCounts.partial_members, Number(memberStatusCounts.paid_members || 0) + Number(memberStatusCounts.partial_members || 0) + Number(memberStatusCounts.unpaid_members || 0)) %>%"></span></div>
+        <b><%= memberStatusCounts.partial_members || 0 %></b>
+      </div>
+      <div class="bar-row">
+        <div><strong>Sem pagamento</strong><span>Nenhum pagamento no ano</span></div>
+        <div class="bar-track danger"><span style="width:<%= makePercent(memberStatusCounts.unpaid_members, Number(memberStatusCounts.paid_members || 0) + Number(memberStatusCounts.partial_members || 0) + Number(memberStatusCounts.unpaid_members || 0)) %>%"></span></div>
+        <b><%= memberStatusCounts.unpaid_members || 0 %></b>
+      </div>
     </div>
   </article>
 
   <article class="panel">
-    <div class="panel-header"><h2>Por método</h2></div>
+    <div class="panel-header">
+      <h2>Por método</h2>
+      <a class="button ghost" href="<%= exportLink('methods') %>">CSV</a>
+    </div>
+    <div class="bar-list">
+      <% duesByMethod.forEach((row) => { %>
+        <div class="bar-row">
+          <div><strong><%= row.name %></strong><span><%= row.payments_count %> pagamentos</span></div>
+          <div class="bar-track"><span style="width:<%= row.percent %>%"></span></div>
+          <b><%= money(row.total) %></b>
+        </div>
+      <% }) %>
+      <% if (duesByMethod.length === 0) { %><div class="empty-state">Sem dados.</div><% } %>
+    </div>
+  </article>
+</section>
+
+<section class="analytics-grid">
+  <article class="panel">
+    <div class="panel-header">
+      <h2>Evolução mensal</h2>
+      <a class="button ghost" href="<%= exportLink('monthly') %>">CSV</a>
+    </div>
+    <div class="trend-chart">
+      <% monthlyTrend.forEach((row) => { %>
+        <div class="trend-bar" title="<%= row.month %>: <%= money(row.total) %>">
+          <span style="height:<%= Math.max(8, row.percent) %>%"></span>
+          <small><%= row.month.slice(5) %></small>
+        </div>
+      <% }) %>
+      <% if (monthlyTrend.length === 0) { %><div class="empty-state">Sem dados.</div><% } %>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-header">
+      <h2>Maiores saldos</h2>
+      <a class="button ghost" href="<%= exportLink('outstanding') %>">CSV</a>
+    </div>
+    <div class="bar-list">
+      <% membersWithBalance.slice(0, 10).forEach((row) => { %>
+        <div class="bar-row">
+          <div><strong><%= `${row.member_number} ${row.name}` %></strong><span>Pago: <%= money(row.paid_total || 0) %></span></div>
+          <div class="bar-track danger"><span style="width:<%= row.percent %>%"></span></div>
+          <b><%= money(row.outstanding || 0) %></b>
+        </div>
+      <% }) %>
+      <% if (membersWithBalance.length === 0) { %><div class="empty-state">Sem saldos em falta.</div><% } %>
+    </div>
+  </article>
+</section>
+
+<% if (filters.status === 'all' || filters.status === 'paid') { %>
+  <section class="panel">
+    <div class="panel-header">
+      <h2>Sócios pagos (top 200)</h2>
+      <a class="button ghost" href="<%= exportLink('paid') %>">Exportar CSV</a>
+    </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Método</th><th>Pagamentos</th><th>Total</th></tr></thead>
+        <thead><tr><th>Sócio</th><th>Pagamentos</th><th>Total</th><th>Último</th></tr></thead>
         <tbody>
-          <% duesByMethod.forEach((row) => { %>
+          <% duesByMember.forEach((row) => { %>
             <tr>
-              <td><%= row.name %></td>
+              <td><%= `${row.member_number} ${row.name}` %></td>
               <td><%= row.payments_count %></td>
               <td><%= money(row.total) %></td>
+              <td><%= row.last_paid_at ? formatDateTime(row.last_paid_at) : '---' %></td>
             </tr>
           <% }) %>
-          <% if (duesByMethod.length === 0) { %><tr><td colspan="3">Sem dados.</td></tr><% } %>
+          <% if (duesByMember.length === 0) { %><tr><td colspan="4">Sem dados.</td></tr><% } %>
         </tbody>
       </table>
     </div>
-  </article>
-</section>
+  </section>
+<% } %>
+
+<% if (filters.status === 'all' || filters.status === 'partial') { %>
+  <section class="panel">
+    <div class="panel-header">
+      <h2>Sócios com saldo em falta (top 200)</h2>
+      <a class="button ghost" href="<%= exportLink('outstanding') %>">Exportar CSV</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Sócio</th><th>Pago</th><th>Em falta</th><th>Último</th></tr></thead>
+        <tbody>
+          <% membersWithBalance.forEach((row) => { %>
+            <tr>
+              <td><%= `${row.member_number} ${row.name}` %></td>
+              <td><%= money(row.paid_total || 0) %></td>
+              <td><%= money(row.outstanding || 0) %></td>
+              <td><%= row.last_paid_at ? formatDateTime(row.last_paid_at) : '---' %></td>
+            </tr>
+          <% }) %>
+          <% if (membersWithBalance.length === 0) { %><tr><td colspan="4">Sem dados.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+<% } %>
+
+<% if (filters.status === 'all' || filters.status === 'unpaid') { %>
+  <section class="panel">
+    <div class="panel-header">
+      <h2>Sócios sem pagamento no ano (top 200)</h2>
+      <a class="button ghost" href="<%= exportLink('unpaid') %>">Exportar CSV</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Nº Sócio</th><th>Nome</th></tr></thead>
+        <tbody>
+          <% unpaidMembers.forEach((row) => { %>
+            <tr>
+              <td><%= row.member_number %></td>
+              <td><%= row.name %></td>
+            </tr>
+          <% }) %>
+          <% if (unpaidMembers.length === 0) { %><tr><td colspan="2">Sem dados.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+<% } %>
 
 <section class="panel">
-  <div class="panel-header"><h2>Por sócio (top 200)</h2></div>
+  <div class="panel-header"><h2>Pagamentos recentes</h2></div>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Sócio</th><th>Pagamentos</th><th>Total</th><th>Último</th></tr></thead>
+      <thead><tr><th>Sócio</th><th>Valor</th><th>Método</th><th>Utilizador</th><th>Data</th></tr></thead>
       <tbody>
-        <% duesByMember.forEach((row) => { %>
+        <% recentPayments.forEach((row) => { %>
           <tr>
             <td><%= `${row.member_number} ${row.name}` %></td>
-            <td><%= row.payments_count %></td>
-            <td><%= money(row.total) %></td>
-            <td><%= row.last_paid_at ? formatDateTime(row.last_paid_at) : '---' %></td>
+            <td><%= money(row.amount) %></td>
+            <td><%= row.payment_method_name %></td>
+            <td><%= row.user_name %></td>
+            <td><%= row.paid_at ? formatDateTime(row.paid_at) : '---' %></td>
           </tr>
         <% }) %>
-        <% if (duesByMember.length === 0) { %><tr><td colspan="4">Sem dados.</td></tr><% } %>
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<section class="panel">
-  <div class="panel-header"><h2>Sócios sem pagamento no ano (top 200)</h2></div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Nº Sócio</th><th>Nome</th></tr></thead>
-      <tbody>
-        <% unpaidMembers.forEach((row) => { %>
-          <tr>
-            <td><%= row.member_number %></td>
-            <td><%= row.name %></td>
-          </tr>
-        <% }) %>
-        <% if (unpaidMembers.length === 0) { %><tr><td colspan="2">Sem dados.</td></tr><% } %>
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<section class="panel">
-  <div class="panel-header"><h2>Sócios com saldo em falta (top 200)</h2></div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Sócio</th><th>Pago</th><th>Em falta</th><th>Último</th></tr></thead>
-      <tbody>
-        <% membersWithBalance.forEach((row) => { %>
-          <% const paid = Number(row.paid_total || 0); %>
-          <% const due = Math.max(0, Number(expectedAmount || 0) - paid); %>
-          <tr>
-            <td><%= `${row.member_number} ${row.name}` %></td>
-            <td><%= money(paid) %></td>
-            <td><%= money(due) %></td>
-            <td><%= row.last_paid_at ? formatDateTime(row.last_paid_at) : '---' %></td>
-          </tr>
-        <% }) %>
-        <% if (membersWithBalance.length === 0) { %><tr><td colspan="4">Sem dados.</td></tr><% } %>
+        <% if (recentPayments.length === 0) { %><tr><td colspan="5">Sem dados.</td></tr><% } %>
       </tbody>
     </table>
   </div>

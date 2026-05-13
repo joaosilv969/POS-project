@@ -16,7 +16,14 @@ const { formatDateTime, money } = require("./lib/formatting");
 const { currentYear, parseInteger, parseNumber } = require("./lib/parsing");
 const { requireAdmin, requireAuth } = require("./middleware/auth");
 const { createPaymentMethodService } = require("./services/payment-methods");
-const { makePercent, normalizeReportFilters, preserveReportQuery, rowsToCsv } = require("./services/report-utils");
+const {
+  makePercent,
+  normalizeDuesReportFilters,
+  normalizeReportFilters,
+  preserveDuesReportQuery,
+  preserveReportQuery,
+  rowsToCsv,
+} = require("./services/report-utils");
 const { createProductImageUpload } = require("./uploads/product-images");
 
 const app = express();
@@ -154,6 +161,7 @@ app.use((req, res, next) => {
   res.locals.assetVersion = assetVersion;
   res.locals.money = money;
   res.locals.formatDateTime = formatDateTime;
+  res.locals.makePercent = makePercent;
   delete req.session.flash;
   next();
 });
@@ -339,6 +347,46 @@ function decorateReportRows(rows, valueKey = "total") {
 
 function reportExportLink(type, queryString) {
   return `/reports/export/${type}${queryString ? `?${queryString}` : ""}`;
+}
+
+function duesPaymentFilters(filters, alias = "mdp") {
+  const clauses = [`${alias}.year = ?`, `${alias}.status = 'paid'`];
+  const params = [filters.year];
+
+  if (filters.startDate) {
+    clauses.push(`${alias}.paid_at >= ?`);
+    params.push(filters.startDate);
+  }
+
+  if (filters.endDate) {
+    clauses.push(`${alias}.paid_at < DATE_ADD(?, INTERVAL 1 DAY)`);
+    params.push(filters.endDate);
+  }
+
+  if (filters.paymentMethodId) {
+    clauses.push(`${alias}.payment_method_id = ?`);
+    params.push(filters.paymentMethodId);
+  }
+
+  return {
+    where: clauses.join(" AND "),
+    params,
+  };
+}
+
+function memberSearchFilter(filters, alias = "m") {
+  if (!filters.search) {
+    return { where: "", params: [] };
+  }
+
+  return {
+    where: `AND (${alias}.member_number LIKE ? OR ${alias}.name LIKE ?)`,
+    params: [`%${filters.search}%`, `%${filters.search}%`],
+  };
+}
+
+function duesExportLink(type, queryString) {
+  return `/reports/dues/export/${type}${queryString ? `?${queryString}` : ""}`;
 }
 
 app.get("/", requireAuth, (req, res) => {
@@ -2700,6 +2748,127 @@ app.get(
 );
 
 app.get(
+  "/reports/export/:type",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    const filters = normalizeReportFilters(req.query);
+    const itemFilters = reportItemFilters(filters);
+    const type = String(req.params.type || "");
+    const exports = {
+      daily: {
+        filename: "relatorio-vendas-dia.csv",
+        columns: [
+          { key: "day", label: "Dia" },
+          { key: "sales_count", label: "Vendas" },
+          { key: "quantity", label: "Artigos" },
+          { key: "total", label: "Total" },
+        ],
+        sql: `SELECT DATE_FORMAT(s.created_at, '%Y-%m-%d') AS day,
+                     COUNT(DISTINCT s.id) AS sales_count,
+                     COALESCE(SUM(si.quantity), 0) AS quantity,
+                     COALESCE(SUM(si.line_total), 0) AS total
+              FROM sale_items si
+              INNER JOIN sales s ON s.id = si.sale_id
+              INNER JOIN products p ON p.id = si.product_id
+              ${itemFilters.where}
+              GROUP BY DATE_FORMAT(s.created_at, '%Y-%m-%d')
+              ORDER BY day DESC`,
+      },
+      products: {
+        filename: "relatorio-produtos.csv",
+        columns: [
+          { key: "product_name", label: "Produto" },
+          { key: "category_name", label: "Categoria" },
+          { key: "product_type", label: "Area" },
+          { key: "sales_count", label: "Vendas" },
+          { key: "quantity", label: "Quantidade" },
+          { key: "total", label: "Total" },
+        ],
+        sql: `SELECT p.name AS product_name, c.name AS category_name, p.product_type,
+                     COUNT(DISTINCT s.id) AS sales_count,
+                     COALESCE(SUM(si.quantity), 0) AS quantity,
+                     COALESCE(SUM(si.line_total), 0) AS total
+              FROM sale_items si
+              INNER JOIN sales s ON s.id = si.sale_id
+              INNER JOIN products p ON p.id = si.product_id
+              INNER JOIN categories c ON c.id = p.category_id
+              ${itemFilters.where}
+              GROUP BY p.id, p.name, c.name, p.product_type
+              ORDER BY total DESC, quantity DESC`,
+      },
+      payments: {
+        filename: "relatorio-pagamentos.csv",
+        columns: [
+          { key: "name", label: "Metodo" },
+          { key: "code", label: "Codigo" },
+          { key: "sales_count", label: "Vendas" },
+          { key: "total", label: "Total" },
+        ],
+        sql: `SELECT pm.name, pm.code,
+                     COUNT(DISTINCT s.id) AS sales_count,
+                     COALESCE(SUM(si.line_total), 0) AS total
+              FROM sale_items si
+              INNER JOIN sales s ON s.id = si.sale_id
+              INNER JOIN payment_methods pm ON pm.id = s.payment_method_id
+              INNER JOIN products p ON p.id = si.product_id
+              ${itemFilters.where}
+              GROUP BY pm.id, pm.name, pm.code
+              ORDER BY total DESC`,
+      },
+      employees: {
+        filename: "relatorio-funcionarios.csv",
+        columns: [
+          { key: "name", label: "Funcionario" },
+          { key: "sales_count", label: "Vendas" },
+          { key: "total", label: "Total" },
+        ],
+        sql: `SELECT u.name,
+                     COUNT(DISTINCT s.id) AS sales_count,
+                     COALESCE(SUM(si.line_total), 0) AS total
+              FROM sale_items si
+              INNER JOIN sales s ON s.id = si.sale_id
+              INNER JOIN users u ON u.id = s.user_id
+              INNER JOIN products p ON p.id = si.product_id
+              ${itemFilters.where}
+              GROUP BY u.id, u.name
+              ORDER BY total DESC`,
+      },
+      categories: {
+        filename: "relatorio-categorias.csv",
+        columns: [
+          { key: "name", label: "Categoria" },
+          { key: "scope", label: "Area" },
+          { key: "sales_count", label: "Vendas" },
+          { key: "quantity", label: "Quantidade" },
+          { key: "total", label: "Total" },
+        ],
+        sql: `SELECT c.name, c.scope,
+                     COUNT(DISTINCT s.id) AS sales_count,
+                     COALESCE(SUM(si.quantity), 0) AS quantity,
+                     COALESCE(SUM(si.line_total), 0) AS total
+              FROM sale_items si
+              INNER JOIN sales s ON s.id = si.sale_id
+              INNER JOIN products p ON p.id = si.product_id
+              INNER JOIN categories c ON c.id = p.category_id
+              ${itemFilters.where}
+              GROUP BY c.id, c.name, c.scope
+              ORDER BY total DESC`,
+      },
+    };
+
+    const definition = exports[type];
+    if (!definition) {
+      return res.redirect("/reports");
+    }
+
+    const [rows] = await pool.execute(definition.sql, itemFilters.params);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${definition.filename}"`);
+    return res.send(rowsToCsv(definition.columns, rows));
+  }),
+);
+
+app.get(
   "/reports/general",
   requireAdmin,
   asyncRoute(async (req, res) => {
@@ -2865,51 +3034,70 @@ app.get(
   "/reports/dues",
   requireAdmin,
   asyncRoute(async (req, res) => {
-    const year = parseInteger(req.query.year, currentYear());
+    const filters = normalizeDuesReportFilters(req.query, currentYear());
+    const queryString = preserveDuesReportQuery(filters);
+    const year = filters.year;
     const expectedAmount = await duesAmountForYear(year);
-    const filters = dateFilters(req.query, "mdp");
+    const paymentFilter = duesPaymentFilters(filters);
+    const searchFilter = memberSearchFilter(filters);
+    const paymentMethodOptions = await paymentMethods.getActivePaymentMethods();
 
-    const [[activeMembers]] = await pool.execute("SELECT COUNT(*) AS count FROM members WHERE active = 1");
+    const [[activeMembers]] = await pool.execute(
+      `SELECT COUNT(*) AS count
+       FROM members m
+       WHERE m.active = 1 ${searchFilter.where}`,
+      searchFilter.params,
+    );
     const expectedTotal = Number(activeMembers ? activeMembers.count : 0) * Number(expectedAmount || 0);
 
     const [duesTotal] = await pool.execute(
       `SELECT COUNT(*) AS payments_count, SUM(mdp.amount) AS total
        FROM member_dues_payments mdp
-       WHERE mdp.year = ? AND mdp.status = 'paid' ${filters.where}`,
-      [year, ...filters.params],
+       INNER JOIN members m ON m.id = mdp.member_id
+       WHERE ${paymentFilter.where} ${searchFilter.where}`,
+      [...paymentFilter.params, ...searchFilter.params],
     );
     const paidTotal = Number((duesTotal[0] && duesTotal[0].total) || 0);
     const outstandingTotal = Math.max(0, Number(expectedTotal) - paidTotal);
+    const collectionRate = makePercent(paidTotal, expectedTotal);
 
     const [duesByMethod] = await pool.execute(
       `SELECT pm.name, COUNT(*) AS payments_count, SUM(mdp.amount) AS total
        FROM member_dues_payments mdp
        INNER JOIN payment_methods pm ON pm.id = mdp.payment_method_id
-       WHERE mdp.year = ? AND mdp.status = 'paid' ${filters.where}
+       INNER JOIN members m ON m.id = mdp.member_id
+       WHERE ${paymentFilter.where} ${searchFilter.where}
        GROUP BY pm.id, pm.name
        ORDER BY total DESC`,
-      [year, ...filters.params],
+      [...paymentFilter.params, ...searchFilter.params],
     );
 
     const [duesByMember] = await pool.execute(
       `SELECT m.member_number, m.name, COUNT(*) AS payments_count, SUM(mdp.amount) AS total, MAX(mdp.paid_at) AS last_paid_at
        FROM member_dues_payments mdp
        INNER JOIN members m ON m.id = mdp.member_id
-       WHERE mdp.year = ? AND mdp.status = 'paid' ${filters.where}
+       WHERE ${paymentFilter.where} ${searchFilter.where}
        GROUP BY m.id, m.member_number, m.name
+       HAVING SUM(mdp.amount) >= ?
        ORDER BY total DESC, m.name ASC
        LIMIT 200`,
-      [year, ...filters.params],
+      [...paymentFilter.params, ...searchFilter.params, expectedAmount],
     );
 
+    const balanceHaving = filters.status === "partial"
+      ? "COALESCE(SUM(mdp.amount), 0) > 0 AND COALESCE(SUM(mdp.amount), 0) < ?"
+      : "COALESCE(SUM(mdp.amount), 0) < ?";
     const [unpaidMembers] = await pool.execute(
       `SELECT m.member_number, m.name
        FROM members m
-       WHERE m.active = 1
-         AND NOT EXISTS (SELECT 1 FROM member_dues_payments mdp WHERE mdp.member_id = m.id AND mdp.year = ?)
+       WHERE m.active = 1 ${searchFilter.where}
+         AND NOT EXISTS (
+           SELECT 1 FROM member_dues_payments mdp
+           WHERE mdp.member_id = m.id AND ${paymentFilter.where}
+         )
        ORDER BY m.name ASC
        LIMIT 200`,
-      [year],
+      [...searchFilter.params, ...paymentFilter.params],
     );
 
     const [membersWithBalance] = await pool.execute(
@@ -2917,28 +3105,199 @@ app.get(
          m.member_number, m.name, COALESCE(SUM(mdp.amount), 0) AS paid_total, MAX(mdp.paid_at) AS last_paid_at
        FROM members m
        LEFT JOIN member_dues_payments mdp
-         ON mdp.member_id = m.id AND mdp.year = ? AND mdp.status = 'paid' ${filters.where}
-       WHERE m.active = 1
+         ON mdp.member_id = m.id AND ${paymentFilter.where}
+       WHERE m.active = 1 ${searchFilter.where}
        GROUP BY m.id, m.member_number, m.name
-       HAVING COALESCE(SUM(mdp.amount), 0) < ?
+       HAVING ${balanceHaving}
        ORDER BY ( ? - COALESCE(SUM(mdp.amount), 0) ) DESC, m.name ASC
        LIMIT 200`,
-      [year, ...filters.params, expectedAmount, expectedAmount],
+      [...paymentFilter.params, ...searchFilter.params, expectedAmount, expectedAmount],
     );
+
+    const [memberStatusCountsRows] = await pool.execute(
+      `SELECT
+         SUM(CASE WHEN paid_total >= ? THEN 1 ELSE 0 END) AS paid_members,
+         SUM(CASE WHEN paid_total > 0 AND paid_total < ? THEN 1 ELSE 0 END) AS partial_members,
+         SUM(CASE WHEN paid_total = 0 THEN 1 ELSE 0 END) AS unpaid_members
+       FROM (
+         SELECT m.id, COALESCE(SUM(mdp.amount), 0) AS paid_total
+         FROM members m
+         LEFT JOIN member_dues_payments mdp
+           ON mdp.member_id = m.id AND ${paymentFilter.where}
+         WHERE m.active = 1 ${searchFilter.where}
+         GROUP BY m.id
+       ) member_totals`,
+      [expectedAmount, expectedAmount, ...paymentFilter.params, ...searchFilter.params],
+    );
+    const memberStatusCounts = memberStatusCountsRows[0] || { paid_members: 0, partial_members: 0, unpaid_members: 0 };
+
+    const [monthlyTrend] = await pool.execute(
+      `SELECT DATE_FORMAT(mdp.paid_at, '%Y-%m') AS month, COUNT(*) AS payments_count, SUM(mdp.amount) AS total
+       FROM member_dues_payments mdp
+       INNER JOIN members m ON m.id = mdp.member_id
+       WHERE ${paymentFilter.where} ${searchFilter.where}
+       GROUP BY DATE_FORMAT(mdp.paid_at, '%Y-%m')
+       ORDER BY month ASC`,
+      [...paymentFilter.params, ...searchFilter.params],
+    );
+
+    const [recentPayments] = await pool.execute(
+      `SELECT mdp.amount, mdp.paid_at, pm.name AS payment_method_name, u.name AS user_name, m.member_number, m.name
+       FROM member_dues_payments mdp
+       INNER JOIN members m ON m.id = mdp.member_id
+       INNER JOIN payment_methods pm ON pm.id = mdp.payment_method_id
+       INNER JOIN users u ON u.id = mdp.user_id
+       WHERE ${paymentFilter.where} ${searchFilter.where}
+       ORDER BY mdp.paid_at DESC, mdp.id DESC
+       LIMIT 50`,
+      [...paymentFilter.params, ...searchFilter.params],
+    );
+
+    const maxOutstanding = Math.max(
+      0,
+      ...membersWithBalance.map((row) => Math.max(0, Number(expectedAmount || 0) - Number(row.paid_total || 0))),
+    );
+    const decoratedMembersWithBalance = membersWithBalance.map((row) => {
+      const outstanding = Math.max(0, Number(expectedAmount || 0) - Number(row.paid_total || 0));
+      return {
+        ...row,
+        outstanding,
+        percent: makePercent(outstanding, maxOutstanding),
+      };
+    });
 
     res.render("reports/dues", {
       title: "Relatório de Cotas",
-      filters: req.query,
+      filters,
+      queryString,
       year,
       expectedAmount,
       expectedTotal,
       outstandingTotal,
+      paidTotal,
+      collectionRate,
+      paymentMethodOptions,
+      exportLink: (type) => duesExportLink(type, queryString),
       duesTotal: duesTotal[0] || { payments_count: 0, total: 0 },
-      duesByMethod,
+      duesByMethod: decorateReportRows(duesByMethod, "total"),
       duesByMember,
       unpaidMembers,
-      membersWithBalance,
+      membersWithBalance: decoratedMembersWithBalance,
+      memberStatusCounts,
+      monthlyTrend: decorateReportRows(monthlyTrend, "total"),
+      recentPayments,
     });
+  }),
+);
+
+app.get(
+  "/reports/dues/export/:type",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    const filters = normalizeDuesReportFilters(req.query, currentYear());
+    const paymentFilter = duesPaymentFilters(filters);
+    const searchFilter = memberSearchFilter(filters);
+    const expectedAmount = await duesAmountForYear(filters.year);
+    const type = String(req.params.type || "");
+    const exports = {
+      paid: {
+        filename: "cotas-socios-pagos.csv",
+        columns: [
+          { key: "member_number", label: "Numero" },
+          { key: "name", label: "Socio" },
+          { key: "payments_count", label: "Pagamentos" },
+          { key: "total", label: "Total" },
+          { key: "last_paid_at", label: "Ultimo pagamento" },
+        ],
+        sql: `SELECT m.member_number, m.name, COUNT(*) AS payments_count, SUM(mdp.amount) AS total, MAX(mdp.paid_at) AS last_paid_at
+              FROM member_dues_payments mdp
+              INNER JOIN members m ON m.id = mdp.member_id
+              WHERE ${paymentFilter.where} ${searchFilter.where}
+              GROUP BY m.id, m.member_number, m.name
+              HAVING SUM(mdp.amount) >= ?
+              ORDER BY total DESC, m.name ASC`,
+        params: [...paymentFilter.params, ...searchFilter.params, expectedAmount],
+      },
+      outstanding: {
+        filename: "cotas-saldos-em-falta.csv",
+        columns: [
+          { key: "member_number", label: "Numero" },
+          { key: "name", label: "Socio" },
+          { key: "paid_total", label: "Pago" },
+          { key: "outstanding", label: "Em falta" },
+          { key: "last_paid_at", label: "Ultimo pagamento" },
+        ],
+        sql: `SELECT m.member_number, m.name,
+                     COALESCE(SUM(mdp.amount), 0) AS paid_total,
+                     (? - COALESCE(SUM(mdp.amount), 0)) AS outstanding,
+                     MAX(mdp.paid_at) AS last_paid_at
+              FROM members m
+              LEFT JOIN member_dues_payments mdp
+                ON mdp.member_id = m.id AND ${paymentFilter.where}
+              WHERE m.active = 1 ${searchFilter.where}
+              GROUP BY m.id, m.member_number, m.name
+              HAVING COALESCE(SUM(mdp.amount), 0) < ?
+              ORDER BY outstanding DESC, m.name ASC`,
+        params: [expectedAmount, ...paymentFilter.params, ...searchFilter.params, expectedAmount],
+      },
+      unpaid: {
+        filename: "cotas-socios-sem-pagamento.csv",
+        columns: [
+          { key: "member_number", label: "Numero" },
+          { key: "name", label: "Socio" },
+        ],
+        sql: `SELECT m.member_number, m.name
+              FROM members m
+              WHERE m.active = 1 ${searchFilter.where}
+                AND NOT EXISTS (
+                  SELECT 1 FROM member_dues_payments mdp
+                  WHERE mdp.member_id = m.id AND ${paymentFilter.where}
+                )
+              ORDER BY m.name ASC`,
+        params: [...searchFilter.params, ...paymentFilter.params],
+      },
+      methods: {
+        filename: "cotas-metodos-pagamento.csv",
+        columns: [
+          { key: "name", label: "Metodo" },
+          { key: "payments_count", label: "Pagamentos" },
+          { key: "total", label: "Total" },
+        ],
+        sql: `SELECT pm.name, COUNT(*) AS payments_count, SUM(mdp.amount) AS total
+              FROM member_dues_payments mdp
+              INNER JOIN payment_methods pm ON pm.id = mdp.payment_method_id
+              INNER JOIN members m ON m.id = mdp.member_id
+              WHERE ${paymentFilter.where} ${searchFilter.where}
+              GROUP BY pm.id, pm.name
+              ORDER BY total DESC`,
+        params: [...paymentFilter.params, ...searchFilter.params],
+      },
+      monthly: {
+        filename: "cotas-evolucao-mensal.csv",
+        columns: [
+          { key: "month", label: "Mes" },
+          { key: "payments_count", label: "Pagamentos" },
+          { key: "total", label: "Total" },
+        ],
+        sql: `SELECT DATE_FORMAT(mdp.paid_at, '%Y-%m') AS month, COUNT(*) AS payments_count, SUM(mdp.amount) AS total
+              FROM member_dues_payments mdp
+              INNER JOIN members m ON m.id = mdp.member_id
+              WHERE ${paymentFilter.where} ${searchFilter.where}
+              GROUP BY DATE_FORMAT(mdp.paid_at, '%Y-%m')
+              ORDER BY month ASC`,
+        params: [...paymentFilter.params, ...searchFilter.params],
+      },
+    };
+
+    const definition = exports[type];
+    if (!definition) {
+      return res.redirect("/reports/dues");
+    }
+
+    const [rows] = await pool.execute(definition.sql, definition.params);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${definition.filename}"`);
+    return res.send(rowsToCsv(definition.columns, rows));
   }),
 );
 

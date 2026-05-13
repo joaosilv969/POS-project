@@ -4,7 +4,9 @@ const assert = require("node:assert/strict");
 const {
   csvEscape,
   makePercent,
+  normalizeDuesReportFilters,
   normalizeReportFilters,
+  preserveDuesReportQuery,
   preserveReportQuery,
   rowsToCsv,
 } = require("../src/services/report-utils");
@@ -62,4 +64,55 @@ test("rowsToCsv renders headers and escaped values", () => {
   );
 
   assert.equal(csv, 'Name,Total\n"Cash, Card",12.5\n');
+});
+
+test("normalizeDuesReportFilters keeps valid dues filters", () => {
+  const filters = normalizeDuesReportFilters({
+    year: "2025",
+    start_date: "2025-01-01",
+    end_date: "bad",
+    payment_method_id: "4",
+    status: "partial",
+    q: "  joao  ",
+  }, 2026);
+
+  assert.deepEqual(filters, {
+    year: 2025,
+    startDate: "2025-01-01",
+    endDate: "",
+    paymentMethodId: 4,
+    status: "partial",
+    search: "joao",
+  });
+});
+
+test("normalizeDuesReportFilters falls back on invalid dues filters", () => {
+  const filters = normalizeDuesReportFilters({
+    year: "1800",
+    payment_method_id: "x",
+    status: "unknown",
+    q: "   ",
+  }, 2026);
+
+  assert.deepEqual(filters, {
+    year: 2026,
+    startDate: "",
+    endDate: "",
+    paymentMethodId: 0,
+    status: "all",
+    search: "",
+  });
+});
+
+test("preserveDuesReportQuery serializes active dues filters only", () => {
+  const query = preserveDuesReportQuery({
+    year: 2025,
+    startDate: "2025-01-01",
+    endDate: "",
+    paymentMethodId: 2,
+    status: "paid",
+    search: "ana",
+  });
+
+  assert.equal(query, "year=2025&start_date=2025-01-01&payment_method_id=2&status=paid&q=ana");
 });

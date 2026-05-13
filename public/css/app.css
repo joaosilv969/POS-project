@@ -682,6 +682,184 @@ button:disabled {
   gap: 1rem;
 }
 
+.report-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0 0 1rem;
+}
+
+.report-tabs a {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--muted);
+  padding: 0.55rem 0.8rem;
+  font-weight: 900;
+}
+
+.report-tabs a.active {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--line));
+  background: var(--surface-strong);
+  color: var(--primary-strong);
+}
+
+.report-filter-panel {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.report-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(130px, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.analytics-kpis {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.analytics-kpis .stat-card {
+  min-width: 0;
+  padding: 1rem;
+}
+
+.analytics-kpis .stat-card strong {
+  font-size: clamp(1.15rem, 1.8vw, 1.75rem);
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.analytics-wide {
+  grid-column: 1 / -1;
+}
+
+.trend-chart {
+  display: flex;
+  align-items: end;
+  gap: 0.4rem;
+  min-height: 190px;
+  overflow-x: auto;
+  padding: 0.5rem 0.15rem 0;
+}
+
+.trend-bar {
+  display: grid;
+  grid-template-rows: minmax(110px, 1fr) auto;
+  gap: 0.45rem;
+  min-width: 34px;
+  height: 170px;
+  align-items: end;
+  justify-items: center;
+}
+
+.trend-bar span {
+  width: 100%;
+  min-height: 8px;
+  border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(180deg, var(--primary), var(--accent));
+}
+
+.trend-bar small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.bar-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 1.1fr) minmax(90px, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.bar-row strong,
+.bar-row span {
+  display: block;
+}
+
+.bar-row span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.bar-row b {
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.bar-track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf1ed;
+}
+
+.bar-track span {
+  height: 100%;
+  min-width: 4px;
+  border-radius: inherit;
+  background: var(--primary);
+}
+
+.bar-track.danger span {
+  background: var(--danger);
+}
+
+.dues-progress {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.dues-progress-track {
+  height: 22px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf1ed;
+}
+
+.dues-progress-track span {
+  display: block;
+  height: 100%;
+  min-width: 4px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+}
+
+.dues-progress-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  align-items: center;
+}
+
+.dues-progress-meta strong {
+  font-size: 1.35rem;
+}
+
+.dues-progress-meta span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.dues-progress-meta b {
+  color: var(--danger);
+}
+
 .align-start {
   align-items: start;
 }
@@ -1259,8 +1437,14 @@ button:disabled {
   .pos-layout,
   .two-column,
   .report-grid,
+  .analytics-grid,
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .analytics-kpis,
+  .report-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .cart-panel {
@@ -1309,6 +1493,19 @@ button:disabled {
   .filter-bar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .analytics-kpis,
+  .report-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bar-row {
+    grid-template-columns: 1fr;
+  }
+
+  .trend-bar {
+    min-width: 30px;
   }
 
   .inline-form {
