@@ -1,0 +1,129 @@
+<section class="page-header">
+  <div>
+    <p class="eyebrow">Hoje</p>
+    <h1>Dashboard</h1>
+  </div>
+  <div class="button-row">
+    <a class="button secondary" href="/merchandising/sale">Venda Merch</a>
+    <a class="button primary" href="/pos">Abrir ponto de venda</a>
+  </div>
+</section>
+
+<section class="quick-grid">
+  <a class="panel quick-card" href="/sales/bar">
+    <div class="panel-header">
+      <h2>Vendas Bar</h2>
+    </div>
+    <p>Histórico e cancelamentos.</p>
+  </a>
+
+  <a class="panel quick-card" href="/sales/merchandising">
+    <div class="panel-header">
+      <h2>Vendas Merch</h2>
+    </div>
+    <p>Histórico e cancelamentos.</p>
+  </a>
+
+  <a class="panel quick-card" href="/stock">
+    <div class="panel-header">
+      <h2>Stock Bar</h2>
+    </div>
+    <p>Entradas, quebras e ajustes.</p>
+  </a>
+
+  <a class="panel quick-card" href="/stock/merchandising">
+    <div class="panel-header">
+      <h2>Stock Merch</h2>
+    </div>
+    <p>Gestão de stock merchandising.</p>
+  </a>
+
+  <a class="panel quick-card" href="/dues">
+    <div class="panel-header">
+      <h2>Cotas</h2>
+    </div>
+    <p>Pagamentos e relatório anual.</p>
+  </a>
+
+  <a class="panel quick-card" href="/reports">
+    <div class="panel-header">
+      <h2>Relatórios</h2>
+    </div>
+    <p>Bar, merchandising e cotas.</p>
+  </a>
+</section>
+
+<section class="stats-grid">
+  <article class="stat-card">
+    <span>Vendas realizadas</span>
+    <strong><%= stats.sales_count %></strong>
+  </article>
+  <article class="stat-card">
+    <span>Total faturado</span>
+    <strong><%= money(stats.total_amount) %></strong>
+  </article>
+  <article class="stat-card warning">
+    <span>Produtos com baixo stock</span>
+    <strong><%= lowStock.length %></strong>
+  </article>
+</section>
+
+<section class="two-column">
+  <article class="panel">
+    <div class="panel-header">
+      <h2>Produtos mais vendidos</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Produto</th>
+            <th>Qtd.</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (topProducts.length === 0) { %>
+            <tr><td colspan="3">Ainda não existem vendas hoje.</td></tr>
+          <% } %>
+          <% topProducts.forEach((product) => { %>
+            <tr>
+              <td><%= product.product_name %></td>
+              <td><%= product.quantity %></td>
+              <td><%= money(product.total) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-header">
+      <h2>Baixo stock</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Produto</th>
+            <th>Categoria</th>
+            <th>Stock</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (lowStock.length === 0) { %>
+            <tr><td colspan="3">Sem alertas de stock.</td></tr>
+          <% } %>
+          <% lowStock.forEach((product) => { %>
+            <tr>
+              <td><%= product.name %></td>
+              <td><%= product.category_name %></td>
+              <td><span class="pill danger"><%= product.stock %></span></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </article>
+</section>

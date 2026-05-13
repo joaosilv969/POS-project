@@ -1,0 +1,78 @@
+<h2>Analytics Dashboard Direction</h2>
+<p class="subtitle">Pick the layout style that best matches how you want to use reports day to day.</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A. Executive Overview</div>
+        <div class="mockup-body">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+            <div class="placeholder" style="height:48px">Sales</div>
+            <div class="placeholder" style="height:48px">Average</div>
+            <div class="placeholder" style="height:48px">Payments</div>
+            <div class="placeholder" style="height:48px">Stock</div>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px">
+            <div class="placeholder" style="height:120px">Revenue line chart</div>
+            <div class="placeholder" style="height:120px">Payment donut</div>
+          </div>
+          <div class="placeholder" style="height:70px;margin-top:8px">Top products table</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Executive Overview</h3>
+      <p>Best for fast daily reading: KPIs first, charts second, tables last.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B. Filter-Driven Analyst</div>
+        <div class="mockup-body">
+          <div style="display:grid;grid-template-columns:180px 1fr;gap:10px">
+            <div class="placeholder" style="height:228px">Filters sidebar</div>
+            <div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
+                <div class="placeholder" style="height:42px">Revenue</div>
+                <div class="placeholder" style="height:42px">Items</div>
+                <div class="placeholder" style="height:42px">Users</div>
+              </div>
+              <div class="placeholder" style="height:96px;margin-bottom:8px">Trend chart</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div class="placeholder" style="height:74px">Product bars</div>
+                <div class="placeholder" style="height:74px">Employee bars</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Filter-Driven Analyst</h3>
+      <p>Best for comparing periods, categories, payment methods, employees, and sale types.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C. Drilldown Workbench</div>
+        <div class="mockup-body">
+          <div class="mock-nav">Overview | Bar | Merchandising | Cotas | Stock</div>
+          <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:8px;margin-top:8px">
+            <div class="placeholder" style="height:120px">Selected report chart</div>
+            <div class="placeholder" style="height:120px">Breakdown controls</div>
+          </div>
+          <div class="placeholder" style="height:92px;margin-top:8px">Drilldown table with export</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Drilldown Workbench</h3>
+      <p>Best for a full analytics module with tabs, drilldowns, comparisons, and export-ready tables.</p>
+    </div>
+  </div>
+</div>

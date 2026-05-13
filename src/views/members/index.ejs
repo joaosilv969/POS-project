@@ -1,0 +1,44 @@
+<section class="page-header">
+  <div>
+    <p class="eyebrow">Clube</p>
+    <h1>Sócios</h1>
+  </div>
+  <a class="button primary" href="/members/new">Novo sócio</a>
+</section>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Nº Sócio</th>
+          <th>Nome</th>
+          <th>Estado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% members.forEach((member) => { %>
+          <tr>
+            <td><%= member.member_number %></td>
+            <td><%= member.name %></td>
+            <td><span class="<%= member.active ? 'pill success' : 'pill muted' %>"><%= member.active ? "Ativo" : "Inativo" %></span></td>
+            <td class="actions-cell">
+              <% if (currentUser && currentUser.role === 'admin') { %>
+                <a class="button secondary" href="/members/<%= member.id %>/edit">Editar</a>
+                <% if (member.active) { %>
+                  <form method="post" action="/members/<%= member.id %>/delete" data-confirm="Inativar este sócio?">
+                    <button class="button danger" type="submit">Inativar</button>
+                  </form>
+                <% } %>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+        <% if (members.length === 0) { %>
+          <tr><td colspan="4">Sem sócios registados.</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</section>

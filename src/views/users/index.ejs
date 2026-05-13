@@ -1,0 +1,41 @@
+<section class="page-header">
+  <div>
+    <p class="eyebrow">Equipa</p>
+    <h1>Utilizadores</h1>
+  </div>
+  <a class="button primary" href="/users/new">Novo utilizador</a>
+</section>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Email</th>
+          <th>Perfil</th>
+          <th>Estado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% users.forEach((user) => { %>
+          <tr>
+            <td><%= user.name %></td>
+            <td><%= user.email %></td>
+            <td><%= user.role === "admin" ? "Administrador" : "Funcionário" %></td>
+            <td><span class="<%= user.active ? 'pill success' : 'pill muted' %>"><%= user.active ? "Ativo" : "Bloqueado" %></span></td>
+            <td class="actions-cell">
+              <a class="button secondary" href="/users/<%= user.id %>/edit">Editar</a>
+              <% if (user.id !== currentUser.id) { %>
+                <form method="post" action="/users/<%= user.id %>/delete" data-confirm="Apagar este utilizador?">
+                  <button class="button danger" type="submit">Apagar</button>
+                </form>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</section>

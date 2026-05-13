@@ -1,0 +1,113 @@
+<section class="page-header">
+  <div>
+    <p class="eyebrow">Produtos</p>
+    <h1><%= product ? "Editar produto" : "Novo produto" %></h1>
+  </div>
+  <a class="button secondary" href="<%= returnPath %>">Voltar</a>
+</section>
+
+<form class="panel form-grid" method="post" action="<%= action %>" enctype="multipart/form-data">
+  <label>
+    Nome do produto
+    <input name="name" required value="<%= product ? product.name : '' %>" />
+  </label>
+
+  <% if (productType) { %>
+    <label>
+      Tipo de produto
+      <input type="text" value="<%= productType === 'merchandising' ? 'Merchandising' : 'Bar' %>" readonly />
+      <input type="hidden" name="product_type" value="<%= productType %>" />
+    </label>
+  <% } else { %>
+    <label>
+      Tipo de produto
+      <select name="product_type">
+        <option value="bar" <%= !product || product.product_type === 'bar' ? 'selected' : '' %>>Bar</option>
+        <option value="merchandising" <%= product && product.product_type === 'merchandising' ? 'selected' : '' %>>Merchandising</option>
+      </select>
+    </label>
+  <% } %>
+
+  <label>
+    Tamanho
+    <input name="size" maxlength="80" value="<%= product ? (product.size || '') : '' %>" />
+  </label>
+
+  <label>
+    Referencia interna
+    <input name="reference_code" required value="<%= product ? product.reference_code : '' %>" />
+  </label>
+
+  <label class="wide">
+    Descricao curta
+    <input name="short_description" maxlength="255" value="<%= product ? (product.short_description || '') : '' %>" />
+  </label>
+
+  <label>
+    Categoria
+    <select name="category_id" required>
+      <% categories.forEach((category) => { %>
+        <option value="<%= category.id %>" <%= product && product.category_id === category.id ? "selected" : "" %>>
+          <%= category.name %>
+        </option>
+      <% }) %>
+    </select>
+  </label>
+
+  <label>
+    Preço de venda
+    <input type="number" name="price" min="0" step="0.01" required value="<%= product ? product.price : '0.00' %>" />
+  </label>
+
+  <label>
+    Stock disponível
+    <input type="number" name="stock" min="0" step="1" required value="<%= product ? product.stock : 0 %>" />
+  </label>
+
+  <label>
+    Alerta baixo stock
+    <input type="number" name="low_stock_threshold" min="0" step="1" required value="<%= product ? product.low_stock_threshold : defaultLowStockThreshold %>" />
+  </label>
+
+  <label class="toggle-field">
+    <input type="checkbox" name="active" <%= !product || product.active ? "checked" : "" %> />
+    Produto ativo
+  </label>
+
+  <label class="toggle-field">
+    <input type="checkbox" name="available_for_sale" <%= !product || product.available_for_sale ? "checked" : "" %> />
+    Disponível para venda
+  </label>
+
+  <div class="wide upload-box">
+    <div>
+      <strong>Imagem do produto</strong>
+      <p>Formatos aceites: jpg, jpeg, png e webp.</p>
+    </div>
+
+    <div class="image-preview" data-image-preview>
+      <% if (image) { %>
+        <img src="/uploads/<%= image.file_name %>" alt="<%= product.name %>" />
+      <% } else { %>
+        <span>Sem imagem</span>
+      <% } %>
+    </div>
+
+    <label class="file-field">
+      <input type="file" name="image" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" data-image-input />
+      Escolher imagem
+    </label>
+
+    <% if (image) { %>
+      <label class="toggle-field">
+        <input type="checkbox" name="remove_image" value="1" />
+        Remover imagem atual
+      </label>
+    <% } %>
+  </div>
+
+  <div class="form-actions wide">
+    <button class="button primary" type="submit">Guardar</button>
+    <a class="button ghost" href="<%= returnPath %>">Cancelar</a>
+  </div>
+</form>

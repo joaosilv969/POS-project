@@ -1,0 +1,42 @@
+<section class="page-header">
+  <div>
+    <p class="eyebrow">Utilizadores</p>
+    <h1><%= user ? "Editar utilizador" : "Novo utilizador" %></h1>
+  </div>
+  <a class="button secondary" href="/users">Voltar</a>
+</section>
+
+<form class="panel form-grid" method="post" action="<%= action %>">
+  <label>
+    Nome
+    <input name="name" required value="<%= user ? user.name : '' %>" />
+  </label>
+
+  <label>
+    Email
+    <input type="email" name="email" required value="<%= user ? user.email : '' %>" />
+  </label>
+
+  <label>
+    Perfil
+    <select name="role">
+      <option value="employee" <%= user && user.role === "employee" ? "selected" : "" %>>Funcionário</option>
+      <option value="admin" <%= user && user.role === "admin" ? "selected" : "" %>>Administrador</option>
+    </select>
+  </label>
+
+  <label>
+    Password <%= user ? "(deixe vazio para manter)" : "" %>
+    <input type="password" name="password" <%= user ? "" : "required" %> minlength="6" />
+  </label>
+
+  <label class="toggle-field">
+    <input type="checkbox" name="active" <%= !user || user.active ? "checked" : "" %> />
+    Utilizador ativo
+  </label>
+
+  <div class="form-actions wide">
+    <button class="button primary" type="submit">Guardar</button>
+    <a class="button ghost" href="/users">Cancelar</a>
+  </div>
+</form>

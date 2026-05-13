@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="pt-PT">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title><%= title %> | Bar POS</title>
+    <link rel="stylesheet" href="/assets/css/app.css?v=<%= assetVersion %>" />
+  </head>
+  <body class="auth-page">
+    <main class="auth-card">
+      <%- include("partials/flash") %>
+      <%- body %>
+    </main>
+
+    <script src="/assets/js/app.js?v=<%= assetVersion %>"></script>
+    <script src="/assets/js/virtual-keyboard.js?v=<%= assetVersion %>"></script>
+  </body>
+</html>

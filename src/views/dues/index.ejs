@@ -1,0 +1,60 @@
+<section class="page-header">
+  <div>
+    <p class="eyebrow">Clube</p>
+    <h1>Cotas</h1>
+    <p class="text-muted">Gestão de pagamentos de cotas por sócio.</p>
+  </div>
+</section>
+
+<form class="filter-bar" method="get" action="/dues">
+  <label>
+    Ano
+    <input type="number" name="year" min="2000" max="2100" value="<%= year %>" />
+  </label>
+  <label>
+    Procurar
+    <input name="q" value="<%= q || '' %>" placeholder="Nome ou nº sócio" />
+  </label>
+  <button class="button secondary" type="submit">Filtrar</button>
+  <a class="button ghost" href="/dues">Limpar</a>
+</form>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Nº Sócio</th>
+          <th>Nome</th>
+          <th>Estado</th>
+          <th>Pago</th>
+          <th>Em falta</th>
+          <th>Último pagamento</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% members.forEach((member) => { %>
+          <% const paidTotal = Number(member.paid_total || 0); %>
+          <% const due = Math.max(0, Number(expectedAmount || 0) - paidTotal); %>
+          <tr>
+            <td><%= member.member_number %></td>
+            <td><%= member.name %></td>
+            <td>
+              <span class="<%= due <= 0 ? 'pill success' : (paidTotal > 0 ? 'pill secondary' : 'pill danger') %>">
+                <%= due <= 0 ? 'Pago' : (paidTotal > 0 ? 'Parcial' : 'Por pagar') %>
+              </span>
+            </td>
+            <td><%= money(paidTotal) %></td>
+            <td><%= money(due) %></td>
+            <td><%= member.last_paid_at ? formatDateTime(member.last_paid_at) : '---' %></td>
+            <td><a class="button secondary" href="/dues/<%= member.id %>?year=<%= year %>">Gerir</a></td>
+          </tr>
+        <% }) %>
+        <% if (members.length === 0) { %>
+          <tr><td colspan="7">Sem sócios.</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</section>

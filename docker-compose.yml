@@ -1,0 +1,72 @@
+services:
+  app1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bar-pos-app1:latest
+    container_name: bar-app1
+    restart: unless-stopped
+    ports:
+      - "${APP_PUBLIC_PORT:-8080}:3000"
+    volumes:
+      - /home/volumes/uploads1:/app1/uploads
+    depends_on:
+      mariadb1:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      APP_PORT: 3000
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
+      DB_HOST: mariadb1
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-bar_db}
+      DB_USER: ${DB_USER:-bar_user}
+      DB_PASSWORD: ${DB_PASSWORD:-bar_password}
+      UPLOAD_DIR: /app1/uploads
+      ADMIN_CANCEL_PIN: ${ADMIN_CANCEL_PIN:-}
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  mariadb1:
+    image: mariadb:11.4
+    container_name: bar-mariadb1
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_password}
+      MARIADB_DATABASE: ${DB_NAME:-bar_db}
+      MARIADB_USER: ${DB_USER:-bar_user}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-bar_password}
+    volumes:
+      - /home/volumes/db2:/var/lib/mysql
+    ports:
+      - "${DB_PUBLIC_PORT:-3306}:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  phpmyadmin1:
+    image: phpmyadmin:latest
+    container_name: bar-phpmyadmin1
+    restart: unless-stopped
+    ports:
+      - "${PHPMYADMIN_PUBLIC_PORT:-8081}:80"
+    environment:
+      PMA_HOST: mariadb1
+      PMA_PORT: 3306
+    depends_on:
+      - mariadb1
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M

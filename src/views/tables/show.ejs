@@ -1,0 +1,131 @@
+<section class="pos-header">
+  <div>
+    <p class="eyebrow"><%= table.location || "Mesa" %></p>
+    <h1><%= table.name %></h1>
+  </div>
+  <div class="button-row">
+    <a class="button secondary" href="/tables">Ver mesas</a>
+  </div>
+</section>
+
+<section class="pos-layout" data-table-order data-order-id="<%= order.id %>" data-total="<%= total %>" data-cash-method-id="<%= cashMethodId || '' %>">
+  <div class="pos-products">
+    <div class="category-tabs" role="tablist" aria-label="Categorias">
+      <button class="active" type="button" data-category-filter="all">Todas</button>
+      <% categories.forEach((category) => { %>
+        <button type="button" data-category-filter="<%= category.id %>"><%= category.name %></button>
+      <% }) %>
+    </div>
+
+    <div class="product-grid">
+      <% products.forEach((product) => { %>
+        <button
+          class="product-tile"
+          type="button"
+          data-table-product-id="<%= product.id %>"
+          data-product-category="<%= product.category_id %>"
+          <%= product.stock <= 0 ? "disabled" : "" %>
+        >
+          <span class="tile-image">
+            <% if (product.image_file) { %>
+              <img src="/uploads/<%= product.image_file %>" alt="<%= product.name %>" />
+            <% } else { %>
+              <span><%= product.name.slice(0, 1) %></span>
+            <% } %>
+          </span>
+          <span class="tile-name"><%= product.name %></span>
+          <% if (product.size) { %>
+            <span class="tile-subtitle"><%= product.size %></span>
+          <% } %>
+          <span class="tile-meta">
+            <strong><%= money(product.price) %></strong>
+            <small>Stock <%= product.stock %></small>
+          </span>
+        </button>
+      <% }) %>
+    </div>
+  </div>
+
+  <aside class="cart-panel">
+    <div class="panel-header">
+      <div>
+        <h2>Conta da mesa</h2>
+        <small>Aberta por <%= order.user_name %> · <%= formatDateTime(order.opened_at) %></small>
+      </div>
+    </div>
+
+    <div class="cart-items table-order-items">
+      <% if (items.length === 0) { %>
+        <div class="empty-cart">Adicione produtos para começar a conta.</div>
+      <% } %>
+
+      <% items.forEach((item) => { %>
+        <div class="cart-item" data-table-item-id="<%= item.id %>">
+          <div>
+            <strong><%= item.product_name %></strong>
+            <small><%= money(item.unit_price) %></small>
+          </div>
+          <div class="qty-controls">
+            <button class="qty-button" type="button" data-table-qty="-1">-</button>
+            <span data-current-qty><%= item.quantity %></span>
+            <button class="qty-button" type="button" data-table-qty="1">+</button>
+            <button class="qty-button" type="button" data-table-remove>x</button>
+          </div>
+          <strong><%= money(item.line_total) %></strong>
+        </div>
+      <% }) %>
+    </div>
+
+    <div class="cart-summary">
+      <label>
+        Pagamento
+        <select data-payment-method>
+          <% paymentMethods.forEach((method) => { %>
+            <option value="<%= method.id %>"><%= method.name %></option>
+          <% }) %>
+        </select>
+      </label>
+
+      <div class="cash-payment-section" data-cash-payment>
+        <label>
+          Valor recebido
+          <input type="text" data-cash-received data-virtual-keyboard="off" placeholder="0,00 €" inputmode="decimal" />
+        </label>
+
+        <div class="cash-keypad">
+          <button type="button" data-key="1">1</button>
+          <button type="button" data-key="2">2</button>
+          <button type="button" data-key="3">3</button>
+          <button type="button" data-key="4">4</button>
+          <button type="button" data-key="5">5</button>
+          <button type="button" data-key="6">6</button>
+          <button type="button" data-key="7">7</button>
+          <button type="button" data-key="8">8</button>
+          <button type="button" data-key="9">9</button>
+          <button type="button" data-key="0">0</button>
+          <button type="button" data-key=".">,</button>
+          <button type="button" data-key="clear">⌫</button>
+        </div>
+
+        <div class="cash-change">
+          <span>Troco</span>
+          <strong data-cash-change>0,00 €</strong>
+        </div>
+      </div>
+
+      <div class="cart-total">
+        <span>Total</span>
+        <strong><%= money(total) %></strong>
+      </div>
+      <p class="form-error" data-table-error hidden></p>
+      <button class="button primary full large" type="button" data-close-table <%= items.length === 0 ? "disabled" : "" %>>
+        Fechar mesa e pagar
+      </button>
+      <form method="post" action="/tables/orders/<%= order.id %>/cancel" data-confirm="Cancelar esta mesa? A conta aberta será fechada sem venda.">
+        <button class="button danger full" type="submit">Cancelar mesa</button>
+      </form>
+    </div>
+  </aside>
+</section>
+
+<script src="/assets/js/tables.js?v=<%= assetVersion %>"></script>

@@ -1,0 +1,129 @@
+<section class="page-header">
+  <div>
+    <p class="eyebrow">Configuração</p>
+    <h1>Marca</h1>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-header">
+    <h2>Aplicação</h2>
+  </div>
+
+  <form class="form-stack" method="post" action="/settings/app">
+    <label>
+      Nome da aplicação
+      <input name="app_name" maxlength="40" placeholder="Ex.: Motoclube" value="<%= appName || '' %>" />
+    </label>
+
+    <label>
+      Subtítulo
+      <input name="app_subtitle" maxlength="60" placeholder="Ex.: Gestão de vendas" value="<%= appSubtitle || '' %>" />
+    </label>
+
+    <div class="form-grid">
+      <label>
+        Prefixo recibo (Bar)
+        <input name="receipt_prefix_bar" maxlength="3" placeholder="Ex.: V" value="<%= receiptPrefixBar || 'V' %>" />
+      </label>
+      <label>
+        Prefixo recibo (Merchandising)
+        <input name="receipt_prefix_merchandising" maxlength="3" placeholder="Ex.: M" value="<%= receiptPrefixMerchandising || 'M' %>" />
+      </label>
+    </div>
+
+    <label>
+      Alerta baixo stock (valor default)
+      <input type="number" name="default_low_stock_threshold" min="0" step="1" value="<%= typeof defaultLowStockThreshold === 'number' ? defaultLowStockThreshold : 5 %>" />
+    </label>
+
+    <button class="button primary" type="submit">Guardar</button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-header">
+    <h2>Logótipo da aplicação</h2>
+  </div>
+
+  <% if (brandMarkImage) { %>
+    <div class="brand-preview">
+      <img src="/brand-mark" alt="Logotipo atual" />
+    </div>
+  <% } %>
+
+  <form class="form-stack" method="post" action="/settings/branding" enctype="multipart/form-data">
+    <label>
+      Selecionar nova imagem
+      <input type="file" name="image" accept="image/png, image/jpeg, image/webp" required />
+    </label>
+
+    <button class="button primary" type="submit">Atualizar logótipo</button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-header">
+    <h2>Interface</h2>
+  </div>
+
+  <label class="toggle-field">
+    <input type="checkbox" data-vk-toggle />
+    Teclado no ecrã (neste dispositivo)
+  </label>
+</section>
+
+<section class="panel">
+  <div class="panel-header">
+    <h2>Segurança</h2>
+  </div>
+
+  <form class="form-stack" method="post" action="/settings/cancel-pin">
+    <label>
+      PIN admin para cancelamentos
+      <input type="password" name="cancel_pin" inputmode="numeric" autocomplete="new-password" placeholder="Ex.: 1234" required />
+    </label>
+    <button class="button primary" type="submit">Guardar PIN</button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-header">
+    <h2>Cotas</h2>
+  </div>
+
+  <form class="form-stack" method="post" action="/settings/dues">
+    <label>
+      Valor default da cota
+      <input type="number" name="dues_default_amount" min="0" step="0.01" value="<%= duesDefaultAmount || 0 %>" />
+    </label>
+    <button class="button primary" type="submit">Guardar</button>
+  </form>
+
+  <hr />
+
+  <form class="form-stack" method="post" action="/settings/dues/year">
+    <label>
+      Ano
+      <input type="number" name="year" min="2000" max="2100" value="<%= new Date().getFullYear() %>" required />
+    </label>
+    <label>
+      Valor da cota para o ano
+      <input type="number" name="amount" min="0" step="0.01" value="<%= duesDefaultAmount || 0 %>" required />
+    </label>
+    <button class="button secondary" type="submit">Guardar valor por ano</button>
+  </form>
+
+  <% if (duesYears && duesYears.length > 0) { %>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Ano</th><th>Valor</th></tr></thead>
+        <tbody>
+          <% duesYears.forEach((row) => { %>
+            <tr><td><%= row.year %></td><td><%= money(row.amount) %></td></tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>

@@ -1,0 +1,70 @@
+<section class="page-header">
+  <div>
+    <p class="eyebrow">Sala</p>
+    <h1>Mesas</h1>
+  </div>
+  <a class="button primary" href="/pos">Venda ao balcão</a>
+</section>
+
+<% if (currentUser) { %>
+  <section class="panel">
+    <div class="panel-header">
+      <h2>Nova mesa</h2>
+    </div>
+    <form class="inline-form" method="post" action="/tables">
+      <label>
+        Nome
+        <input name="name" placeholder="Mesa 9" required />
+      </label>
+      <label>
+        Zona
+        <input name="location" placeholder="Sala, esplanada, balcão" />
+      </label>
+      <label>
+        Lugares
+        <input type="number" name="capacity" min="1" step="1" value="4" />
+      </label>
+      <button class="button primary" type="submit">Criar mesa</button>
+    </form>
+  </section>
+<% } %>
+
+<section class="tables-grid">
+  <% tables.forEach((table) => { %>
+    <article class="table-card <%= table.order_id ? 'occupied' : '' %> <%= table.active ? '' : 'inactive' %>">
+      <div class="table-card-main">
+        <span class="<%= table.order_id ? 'pill danger' : table.active ? 'pill success' : 'pill muted' %>">
+          <%= table.order_id ? "Ocupada" : table.active ? "Livre" : "Inativa" %>
+        </span>
+        <h2><%= table.name %></h2>
+        <p><%= table.location || "Sem zona" %> · <%= table.capacity %> lugares</p>
+      </div>
+
+      <% if (table.order_id) { %>
+        <div class="table-total">
+          <span>Conta aberta</span>
+          <strong><%= money(table.total_amount) %></strong>
+          <small><%= table.items_count %> itens · <%= table.user_name %></small>
+        </div>
+        <a class="button primary full" href="/tables/<%= table.id %>">Abrir conta</a>
+      <% } else if (table.active) { %>
+        <form method="post" action="/tables/<%= table.id %>/open">
+          <button class="button primary full" type="submit">Abrir mesa</button>
+        </form>
+      <% } %>
+
+      <% if (currentUser) { %>
+        <form class="table-admin-form" method="post" action="/tables/<%= table.id %>">
+          <input name="name" value="<%= table.name %>" required />
+          <input name="location" value="<%= table.location || '' %>" placeholder="Zona" />
+          <input type="number" name="capacity" min="1" step="1" value="<%= table.capacity %>" />
+          <label class="toggle-field compact">
+            <input type="checkbox" name="active" <%= table.active ? "checked" : "" %> />
+            Ativa
+          </label>
+          <button class="button secondary full" type="submit">Guardar mesa</button>
+        </form>
+      <% } %>
+    </article>
+  <% }) %>
+</section>

@@ -1,0 +1,78 @@
+<section class="page-header">
+  <div>
+    <p class="eyebrow">Histórico</p>
+    <h1><%= title %></h1>
+  </div>
+</section>
+
+<form class="filter-bar" method="get" action="/sales">
+  <label>
+    Inicio
+    <input type="date" name="start_date" value="<%= filters.start_date || '' %>" />
+  </label>
+  <label>
+    Fim
+    <input type="date" name="end_date" value="<%= filters.end_date || '' %>" />
+  </label>
+  <button class="button secondary" type="submit">Filtrar</button>
+  <a class="button ghost" href="/sales">Limpar</a>
+</form>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Recibo</th>
+          <th>Data</th>
+          <th>Funcionário</th>
+          <th>Sócio</th>
+          <th>Mesa</th>
+          <th>Pagamento</th>
+          <th>Total</th>
+          <th>Estado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (sales.length === 0) { %>
+          <tr><td colspan="9">Não existem vendas para os filtros escolhidos.</td></tr>
+        <% } %>
+        <% sales.forEach((sale) => { %>
+          <% const isMerchSale = String(sale.receipt_number || '').startsWith('M'); %>
+          <tr>
+            <td><%= sale.receipt_number %></td>
+            <td><%= formatDateTime(sale.created_at) %></td>
+            <td><%= sale.user_name %></td>
+            <td><%= (sale.member_number || sale.member_name) ? `${sale.member_number || ''} ${sale.member_name || ''}`.trim() : '---' %></td>
+            <td><%= sale.table_name || (isMerchSale ? '---' : 'Balcão') %></td>
+            <td><%= sale.payment_method %></td>
+            <td><%= money(sale.total_amount) %></td>
+            <td><span class="<%= sale.status === 'completed' ? 'pill success' : 'pill danger' %>"><%= sale.status === 'completed' ? 'Concluída' : 'Cancelada' %></span></td>
+            <td class="actions-cell">
+              <a class="button secondary" href="/sales/<%= sale.id %>">Ver</a>
+              <% if (sale.status === 'completed') { %>
+                <% if (currentUser && currentUser.role === 'admin') { %>
+                  <form method="post" action="/sales/<%= sale.id %>/cancel" data-confirm="Cancelar esta venda? Isto repõe stock e marca a venda como cancelada.">
+                    <input type="hidden" name="redirect_to" value="<%= currentPath %>" />
+                    <input type="password" name="admin_pin" placeholder="PIN admin" inputmode="numeric" autocomplete="one-time-code" required />
+                    <button class="button danger" type="submit">Cancelar</button>
+                  </form>
+                <% } else { %>
+                  <details class="cancel-details">
+                    <summary class="button danger">Cancelar</summary>
+                    <form method="post" action="/sales/<%= sale.id %>/cancel" data-confirm="Cancelar esta venda? Isto repõe stock e marca a venda como cancelada.">
+                      <input type="hidden" name="redirect_to" value="<%= currentPath %>" />
+                      <input type="password" name="admin_pin" placeholder="PIN admin" inputmode="numeric" autocomplete="one-time-code" required />
+                      <button class="button danger" type="submit">Confirmar</button>
+                    </form>
+                  </details>
+                <% } %>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</section>

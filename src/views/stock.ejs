@@ -1,0 +1,111 @@
+<section class="page-header">
+  <div>
+    <p class="eyebrow">Inventario</p>
+    <h1><%= title %></h1>
+  </div>
+</section>
+
+<section class="two-column align-start">
+  <form class="panel form-stack" method="post" action="<%= movementAction || '/stock/movements' %>">
+    <div class="panel-header">
+      <h2>Novo movimento</h2>
+    </div>
+
+    <label>
+      Produto
+      <select name="product_id" required>
+        <% products.forEach((product) => { %>
+          <option value="<%= product.id %>"><%= product.name %> · stock <%= product.stock %></option>
+        <% }) %>
+      </select>
+    </label>
+
+    <label>
+      Tipo
+      <select name="type" required>
+        <option value="entry">Entrada</option>
+        <option value="manual_adjustment">Correção manual</option>
+        <option value="waste">Desperdicio/quebra</option>
+      </select>
+    </label>
+
+    <label>
+      Quantidade
+      <input type="number" name="quantity" required step="1" />
+    </label>
+
+    <label>
+      Motivo
+      <input name="reason" placeholder="Ex.: compra, inventario, quebra" />
+    </label>
+
+    <button class="button primary" type="submit">Registar movimento</button>
+  </form>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Produtos em stock</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Produto</th>
+            <th>Categoria</th>
+            <th>Stock</th>
+            <th>Alerta</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% products.forEach((product) => { %>
+            <tr>
+              <td><%= product.name %></td>
+              <td><%= product.category_name %></td>
+              <td><span class="<%= product.stock <= product.low_stock_threshold ? 'pill danger' : 'pill success' %>"><%= product.stock %></span></td>
+              <td><%= product.low_stock_threshold %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-header">
+    <h2>Histórico de movimentos</h2>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Produto</th>
+          <th>Tipo</th>
+          <th>Mov.</th>
+          <th>Antes</th>
+          <th>Depois</th>
+          <th>Utilizador</th>
+          <th>Motivo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (movements.length === 0) { %>
+          <tr><td colspan="8">Ainda não existem movimentos.</td></tr>
+        <% } %>
+        <% movements.forEach((movement) => { %>
+          <tr>
+            <td><%= formatDateTime(movement.created_at) %></td>
+            <td><%= movement.product_name || "Produto removido" %></td>
+            <td><%= movement.type %></td>
+            <td><%= movement.quantity_change %></td>
+            <td><%= movement.quantity_before %></td>
+            <td><%= movement.quantity_after %></td>
+            <td><%= movement.user_name %></td>
+            <td><%= movement.reason || "" %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</section>

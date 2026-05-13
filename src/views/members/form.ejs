@@ -1,0 +1,32 @@
+<section class="page-header">
+  <div>
+    <p class="eyebrow">Clube</p>
+    <h1><%= member ? "Editar sócio" : "Novo sócio" %></h1>
+  </div>
+  <a class="button secondary" href="/members">Voltar</a>
+</section>
+
+<form class="panel form-grid" method="post" action="<%= action %>">
+  <label>
+    Nº Sócio
+    <input name="member_number" required maxlength="80" value="<%= member ? member.member_number : '' %>" />
+  </label>
+
+  <label>
+    Nome
+    <input name="name" required maxlength="120" value="<%= member ? member.name : '' %>" />
+  </label>
+
+  <% if (member) { %>
+    <label class="toggle-field">
+      <input type="checkbox" name="active" <%= member.active ? "checked" : "" %> />
+      Sócio ativo
+    </label>
+  <% } %>
+
+  <div class="form-actions wide">
+    <button class="button primary" type="submit">Guardar</button>
+    <a class="button ghost" href="/members">Cancelar</a>
+  </div>
+</form>
+

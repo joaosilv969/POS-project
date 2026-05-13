@@ -1,0 +1,105 @@
+<section class="page-header">
+  <div>
+    <p class="eyebrow">Análise</p>
+    <h1>Relatório Merchandising</h1>
+  </div>
+  <a class="button secondary" href="/reports">Voltar</a>
+</section>
+
+<form class="filter-bar" method="get" action="/reports/merchandising">
+  <label>
+    Inicio
+    <input type="date" name="start_date" value="<%= filters.start_date || '' %>" />
+  </label>
+  <label>
+    Fim
+    <input type="date" name="end_date" value="<%= filters.end_date || '' %>" />
+  </label>
+  <label>
+    Categoria
+    <select name="category_id">
+      <option value="">Todas</option>
+      <% categories.forEach((category) => { %>
+        <option value="<%= category.id %>" <%= selectedCategoryId === category.id ? "selected" : "" %>><%= category.name %></option>
+      <% }) %>
+    </select>
+  </label>
+  <button class="button secondary" type="submit">Filtrar</button>
+  <a class="button ghost" href="/reports/merchandising">Limpar</a>
+</form>
+
+<section class="report-grid">
+  <article class="panel">
+    <div class="panel-header"><h2>Total</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Vendas</th><th>Total</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><%= merchTotal.sales_count || 0 %></td>
+            <td><%= money(merchTotal.total || 0) %></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-header"><h2>Quem comprou o quê</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Sócio</th><th>Produto</th><th>Vendas</th><th>Qtd.</th><th>Total</th></tr></thead>
+        <tbody>
+          <% merchByMemberProduct.forEach((row) => { %>
+            <tr>
+              <td><%= (row.member_number || row.member_name) ? `${row.member_number || ''} ${row.member_name || ''}`.trim() : '---' %></td>
+              <td><%= row.product_name %></td>
+              <td><%= row.sales_count %></td>
+              <td><%= row.quantity %></td>
+              <td><%= money(row.total) %></td>
+            </tr>
+          <% }) %>
+          <% if (merchByMemberProduct.length === 0) { %><tr><td colspan="5">Sem dados.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-header"><h2>Por sócio</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Sócio</th><th>Vendas</th><th>Total</th></tr></thead>
+        <tbody>
+          <% merchByMember.forEach((row) => { %>
+            <tr>
+              <td><%= (row.member_number || row.member_name) ? `${row.member_number || ''} ${row.member_name || ''}`.trim() : '---' %></td>
+              <td><%= row.sales_count %></td>
+              <td><%= money(row.total) %></td>
+            </tr>
+          <% }) %>
+          <% if (merchByMember.length === 0) { %><tr><td colspan="3">Sem dados.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-header"><h2>Por produto</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Produto</th><th>Qtd.</th><th>Total</th></tr></thead>
+        <tbody>
+          <% merchByProduct.forEach((row) => { %>
+            <tr>
+              <td><%= row.product_name %></td>
+              <td><%= row.quantity %></td>
+              <td><%= money(row.total) %></td>
+            </tr>
+          <% }) %>
+          <% if (merchByProduct.length === 0) { %><tr><td colspan="3">Sem dados.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </article>
+</section>

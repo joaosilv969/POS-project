@@ -1,0 +1,105 @@
+<section class="page-header">
+  <div>
+    <p class="eyebrow">Clube</p>
+    <h1>Pagamento de cotas</h1>
+    <p class="text-muted"><strong><%= member.member_number %></strong> · <%= member.name %> · Ano <strong><%= year %></strong></p>
+  </div>
+  <a class="button secondary" href="/dues?year=<%= year %>">Voltar</a>
+</section>
+
+<section class="stats-grid">
+  <article class="stat-card">
+    <span>Valor esperado</span>
+    <strong><%= money(expectedAmount || 0) %></strong>
+  </article>
+  <article class="stat-card">
+    <span>Pago</span>
+    <strong><%= money(paidTotal || 0) %></strong>
+  </article>
+  <article class="stat-card warning">
+    <span>Em falta</span>
+    <strong><%= money(Math.max(0, (expectedAmount || 0) - (paidTotal || 0))) %></strong>
+  </article>
+</section>
+
+<section class="two-column align-start">
+  <form class="panel form-stack" method="post" action="/dues/<%= member.id %>">
+    <div class="panel-header">
+      <h2>Novo pagamento</h2>
+    </div>
+    <input type="hidden" name="year" value="<%= year %>" />
+    <label>
+      Método
+      <select name="payment_method_id" required>
+        <% paymentMethods.forEach((method) => { %>
+          <option value="<%= method.id %>"><%= method.name %></option>
+        <% }) %>
+      </select>
+    </label>
+    <label>
+      Valor
+      <input type="number" name="amount" min="0" step="0.01" required value="<%= remainingAmount %>" />
+    </label>
+    <label>
+      Notas (opcional)
+      <input name="notes" maxlength="255" />
+    </label>
+    <button class="button primary" type="submit">Registar</button>
+  </form>
+
+  <section class="panel">
+    <div class="panel-header">
+      <h2>Pagamentos do ano</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Valor</th>
+            <th>Método</th>
+            <th>Registado por</th>
+            <th>Estado</th>
+            <th>Notas</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% payments.forEach((p) => { %>
+            <tr>
+              <td><%= formatDateTime(p.paid_at) %></td>
+              <td><%= money(p.amount) %></td>
+              <td><%= p.payment_method_name %></td>
+              <td><%= p.user_name %></td>
+              <td><span class="<%= p.status === 'paid' ? 'pill success' : 'pill danger' %>"><%= p.status === 'paid' ? 'Pago' : 'Cancelado' %></span></td>
+              <td><%= p.notes || '' %></td>
+              <td class="actions-cell">
+                <% if (p.status === 'paid') { %>
+                  <% if (currentUser && currentUser.role === 'admin') { %>
+                    <form method="post" action="/dues/payments/<%= p.id %>/cancel" data-confirm="Cancelar este pagamento de cota?">
+                      <input type="hidden" name="redirect_to" value="/dues/<%= member.id %>?year=<%= year %>" />
+                      <input type="password" name="admin_pin" placeholder="PIN admin" inputmode="numeric" autocomplete="one-time-code" required />
+                      <button class="button danger" type="submit">Cancelar</button>
+                    </form>
+                  <% } else { %>
+                    <details class="cancel-details">
+                      <summary class="button danger">Cancelar</summary>
+                      <form method="post" action="/dues/payments/<%= p.id %>/cancel" data-confirm="Cancelar este pagamento de cota?">
+                        <input type="hidden" name="redirect_to" value="/dues/<%= member.id %>?year=<%= year %>" />
+                        <input type="password" name="admin_pin" placeholder="PIN admin" inputmode="numeric" autocomplete="one-time-code" required />
+                        <button class="button danger" type="submit">Confirmar</button>
+                      </form>
+                    </details>
+                  <% } %>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+          <% if (payments.length === 0) { %>
+            <tr><td colspan="7">Ainda não existem pagamentos para este ano.</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</section>

@@ -1,0 +1,109 @@
+<section class="page-header">
+  <div>
+    <p class="eyebrow">Análise</p>
+    <h1>Relatórios</h1>
+  </div>
+</section>
+
+<form class="filter-bar" method="get" action="/reports">
+  <label>
+    Inicio
+    <input type="date" name="start_date" value="<%= filters.start_date || '' %>" />
+  </label>
+  <label>
+    Fim
+    <input type="date" name="end_date" value="<%= filters.end_date || '' %>" />
+  </label>
+  <button class="button secondary" type="submit">Filtrar</button>
+  <a class="button ghost" href="/reports">Limpar</a>
+</form>
+
+<section class="report-grid">
+  <article class="panel">
+    <div class="panel-header"><h2>Vendas por dia</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Dia</th><th>Vendas</th><th>Total</th></tr></thead>
+        <tbody>
+          <% salesByDay.forEach((row) => { %>
+            <tr><td><%= row.day %></td><td><%= row.sales_count %></td><td><%= money(row.total) %></td></tr>
+          <% }) %>
+          <% if (salesByDay.length === 0) { %><tr><td colspan="3">Sem dados.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-header"><h2>Vendas por produto</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Produto</th><th>Qtd.</th><th>Total</th></tr></thead>
+        <tbody>
+          <% salesByProduct.forEach((row) => { %>
+            <tr><td><%= row.product_name %></td><td><%= row.quantity %></td><td><%= money(row.total) %></td></tr>
+          <% }) %>
+          <% if (salesByProduct.length === 0) { %><tr><td colspan="3">Sem dados.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-header"><h2>Vendas por funcionário</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Funcionário</th><th>Vendas</th><th>Total</th></tr></thead>
+        <tbody>
+          <% salesByEmployee.forEach((row) => { %>
+            <tr><td><%= row.name %></td><td><%= row.sales_count %></td><td><%= money(row.total) %></td></tr>
+          <% }) %>
+          <% if (salesByEmployee.length === 0) { %><tr><td colspan="3">Sem dados.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-header"><h2>Total por pagamento</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Metodo</th><th>Vendas</th><th>Total</th></tr></thead>
+        <tbody>
+          <% paymentTotals.forEach((row) => { %>
+            <tr><td><%= row.name %></td><td><%= row.sales_count %></td><td><%= money(row.total) %></td></tr>
+          <% }) %>
+          <% if (paymentTotals.length === 0) { %><tr><td colspan="3">Sem dados.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </article>
+</section>
+
+<section class="panel">
+  <div class="panel-header"><h2>Stock baixo</h2></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Produto</th><th>Categoria</th><th>Stock</th><th>Alerta</th></tr></thead>
+      <tbody>
+        <% lowStock.forEach((product) => { %>
+          <tr>
+            <td><%= product.name %></td>
+            <td><%= product.category_name %></td>
+            <td><span class="pill danger"><%= product.stock %></span></td>
+            <td><%= product.low_stock_threshold %></td>
+          </tr>
+        <% }) %>
+        <% if (lowStock.length === 0) { %><tr><td colspan="4">Sem produtos com stock baixo.</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-header"><h2>Outros relatórios</h2></div>
+  <div class="button-row">
+    <a class="button secondary" href="/reports/merchandising">Relatório de Merchandising</a>
+    <a class="button secondary" href="/reports/dues">Relatório de Cotas</a>
+  </div>
+</section>

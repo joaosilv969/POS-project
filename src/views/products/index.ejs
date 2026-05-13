@@ -1,0 +1,62 @@
+<section class="page-header">
+  <div>
+    <p class="eyebrow">Catálogo</p>
+    <h1><%= title %></h1>
+  </div>
+  <div class="header-actions">
+    <% if (currentUser.role === "admin") { %>
+      <a class="button primary" href="<%= newProductPath %>">Novo produto</a>
+    <% } %>
+    <% if (salePath) { %>
+      <a class="button secondary" href="<%= salePath %>">Registar venda</a>
+    <% } %>
+  </div>
+</section>
+
+<section class="product-list">
+  <% if (products.length === 0) { %>
+    <div class="empty-state">Ainda não existem produtos.</div>
+  <% } %>
+
+  <% products.forEach((product) => { %>
+    <article class="product-row">
+      <div class="product-image">
+        <% if (product.image_file) { %>
+          <img src="/uploads/<%= product.image_file %>" alt="<%= product.name %>" />
+        <% } else { %>
+          <span><%= product.name.slice(0, 1) %></span>
+        <% } %>
+      </div>
+
+      <div class="product-main">
+        <div>
+          <h2><%= product.name %></h2>
+          <p><%= product.short_description || "Sem descrição" %></p>
+        </div>
+        <div class="meta-line">
+          <span><%= product.category_name %></span>
+          <span class="pill <%= product.product_type === 'merchandising' ? 'secondary' : 'muted' %>"><%= product.product_type === 'merchandising' ? 'Merchandising' : 'Bar' %></span>
+          <% if (product.size) { %><span><%= product.size %></span><% } %>
+          <span>Ref. <%= product.reference_code %></span>
+          <span><%= money(product.price) %></span>
+          <span class="<%= product.stock <= product.low_stock_threshold ? 'pill danger' : 'pill' %>">Stock <%= product.stock %></span>
+        </div>
+      </div>
+
+      <div class="row-actions">
+        <% if (product.active && product.available_for_sale) { %>
+          <span class="pill success">A venda</span>
+        <% } else { %>
+          <span class="pill muted">Inativo</span>
+        <% } %>
+
+        <% if (currentUser.role === "admin") { %>
+          <a class="button secondary" href="/products/<%= product.id %>/edit">Editar</a>
+          <form method="post" action="/products/<%= product.id %>/delete" data-confirm="Remover este produto da listagem?">
+            <button class="button danger" type="submit">Apagar</button>
+          </form>
+        <% } %>
+      </div>
+    </article>
+  <% }) %>
+</section>

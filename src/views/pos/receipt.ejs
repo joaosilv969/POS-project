@@ -1,0 +1,66 @@
+<section class="page-header receipt-actions">
+  <div>
+    <p class="eyebrow">Recibo</p>
+    <h1><%= sale.receipt_number %></h1>
+  </div>
+  <div class="button-row">
+    <button class="button secondary" type="button" data-print>Imprimir</button>
+    <a class="button primary" href="/pos">Nova venda</a>
+  </div>
+</section>
+
+<article class="receipt">
+  <header>
+    <strong>Bar POS</strong>
+    <span><%= formatDateTime(sale.created_at) %></span>
+  </header>
+
+  <dl class="receipt-meta">
+    <% if (sale.table_name) { %>
+      <div>
+        <dt>Mesa</dt>
+        <dd><%= sale.table_name %></dd>
+      </div>
+    <% } %>
+    <% if (sale.member_number || sale.member_name) { %>
+      <div>
+        <dt>Sócio</dt>
+        <dd><%= sale.member_number ? `${sale.member_number} - ` : '' %><%= sale.member_name || '---' %></dd>
+      </div>
+    <% } %>
+    <div>
+      <dt>Funcionário</dt>
+      <dd><%= sale.user_name %></dd>
+    </div>
+    <div>
+      <dt>Pagamento</dt>
+      <dd><%= sale.payment_method %></dd>
+    </div>
+  </dl>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Produto</th>
+        <th>Qtd.</th>
+        <th>Preço</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% items.forEach((item) => { %>
+        <tr>
+          <td><%= item.product_name %></td>
+          <td><%= item.quantity %></td>
+          <td><%= money(item.unit_price) %></td>
+          <td><%= money(item.line_total) %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+
+  <footer>
+    <span>Total</span>
+    <strong><%= money(sale.total_amount) %></strong>
+  </footer>
+</article>

@@ -1,0 +1,27 @@
+{
+  "name": "bar-pos",
+  "version": "1.0.0",
+  "description": "Aplicacao web para gestao de vendas de um bar",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node scripts/init-db.js && node src/server.js",
+    "dev": "node scripts/init-db.js && nodemon src/server.js",
+    "test": "node --test",
+    "check": "node --check src/server.js && node --check scripts/init-db.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-ejs-layouts": "^2.5.1",
+    "express-mysql-session": "^3.0.3",
+    "express-session": "^1.18.1",
+    "helmet": "^8.0.0",
+    "multer": "^2.0.2",
+    "mysql2": "^3.11.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}

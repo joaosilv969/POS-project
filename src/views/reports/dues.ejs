@@ -1,0 +1,137 @@
+<section class="page-header">
+  <div>
+    <p class="eyebrow">Análise</p>
+    <h1>Relatório de Cotas</h1>
+    <p class="text-muted">Ano <strong><%= year %></strong></p>
+  </div>
+  <a class="button secondary" href="/reports">Voltar</a>
+</section>
+
+<form class="filter-bar" method="get" action="/reports/dues">
+  <label>
+    Ano
+    <input type="number" name="year" min="2000" max="2100" value="<%= year %>" />
+  </label>
+  <label>
+    Inicio
+    <input type="date" name="start_date" value="<%= filters.start_date || '' %>" />
+  </label>
+  <label>
+    Fim
+    <input type="date" name="end_date" value="<%= filters.end_date || '' %>" />
+  </label>
+  <button class="button secondary" type="submit">Filtrar</button>
+  <a class="button ghost" href="/reports/dues?year=<%= year %>">Limpar datas</a>
+</form>
+
+<section class="report-grid">
+  <article class="panel">
+    <div class="panel-header"><h2>Total</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Pagamentos</th><th>Total</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><%= duesTotal.payments_count || 0 %></td>
+            <td><%= money(duesTotal.total || 0) %></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-header"><h2>Esperado</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Valor/ano</th><th>Total esperado</th><th>Em falta</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><%= money(expectedAmount || 0) %></td>
+            <td><%= money(expectedTotal || 0) %></td>
+            <td><%= money(outstandingTotal || 0) %></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-header"><h2>Por método</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Método</th><th>Pagamentos</th><th>Total</th></tr></thead>
+        <tbody>
+          <% duesByMethod.forEach((row) => { %>
+            <tr>
+              <td><%= row.name %></td>
+              <td><%= row.payments_count %></td>
+              <td><%= money(row.total) %></td>
+            </tr>
+          <% }) %>
+          <% if (duesByMethod.length === 0) { %><tr><td colspan="3">Sem dados.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </article>
+</section>
+
+<section class="panel">
+  <div class="panel-header"><h2>Por sócio (top 200)</h2></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Sócio</th><th>Pagamentos</th><th>Total</th><th>Último</th></tr></thead>
+      <tbody>
+        <% duesByMember.forEach((row) => { %>
+          <tr>
+            <td><%= `${row.member_number} ${row.name}` %></td>
+            <td><%= row.payments_count %></td>
+            <td><%= money(row.total) %></td>
+            <td><%= row.last_paid_at ? formatDateTime(row.last_paid_at) : '---' %></td>
+          </tr>
+        <% }) %>
+        <% if (duesByMember.length === 0) { %><tr><td colspan="4">Sem dados.</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-header"><h2>Sócios sem pagamento no ano (top 200)</h2></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Nº Sócio</th><th>Nome</th></tr></thead>
+      <tbody>
+        <% unpaidMembers.forEach((row) => { %>
+          <tr>
+            <td><%= row.member_number %></td>
+            <td><%= row.name %></td>
+          </tr>
+        <% }) %>
+        <% if (unpaidMembers.length === 0) { %><tr><td colspan="2">Sem dados.</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-header"><h2>Sócios com saldo em falta (top 200)</h2></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Sócio</th><th>Pago</th><th>Em falta</th><th>Último</th></tr></thead>
+      <tbody>
+        <% membersWithBalance.forEach((row) => { %>
+          <% const paid = Number(row.paid_total || 0); %>
+          <% const due = Math.max(0, Number(expectedAmount || 0) - paid); %>
+          <tr>
+            <td><%= `${row.member_number} ${row.name}` %></td>
+            <td><%= money(paid) %></td>
+            <td><%= money(due) %></td>
+            <td><%= row.last_paid_at ? formatDateTime(row.last_paid_at) : '---' %></td>
+          </tr>
+        <% }) %>
+        <% if (membersWithBalance.length === 0) { %><tr><td colspan="4">Sem dados.</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</section>

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="pt-PT">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title><%= title %> | <%= appName %></title>
+    <link rel="stylesheet" href="/assets/css/app.css?v=<%= assetVersion %>" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="/">
+          <% if (brandMarkImage) { %>
+            <span class="brand-mark">
+              <img src="/brand-mark" alt="Logótipo" />
+            </span>
+          <% } else { %>
+            <span class="brand-mark">B</span>
+          <% } %>
+          <span>
+            <strong><%= appName %></strong>
+            <small><%= appSubtitle %></small>
+          </span>
+        </a>
+
+        <nav class="nav-list" aria-label="Menu principal">
+          <% if (currentUser && currentUser.role === "admin") { %>
+            <a class="<%= currentPath === '/dashboard' ? 'active' : '' %>" href="/dashboard">Dashboard</a>
+          <% } else { %>
+            <a class="<%= currentPath === '/home' ? 'active' : '' %>" href="/home">Início</a>
+          <% } %>
+          <a class="<%= currentPath.startsWith('/pos') ? 'active' : '' %>" href="/pos">Ponto de venda</a>
+          <a class="<%= currentPath.startsWith('/tables') ? 'active' : '' %>" href="/tables">Mesas</a>
+          <a class="<%= currentPath.startsWith('/my-sales') ? 'active' : '' %>" href="/my-sales">Minhas vendas</a>
+          <a class="<%= currentPath.startsWith('/cash-summary') ? 'active' : '' %>" href="/cash-summary">Resumo caixa</a>
+          <details class="nav-group <%= (currentPath.startsWith('/members') || currentPath.startsWith('/dues') || currentPath.startsWith('/reports/dues')) ? 'active' : '' %>" <%= (currentPath.startsWith('/members') || currentPath.startsWith('/dues') || currentPath.startsWith('/reports/dues')) ? 'open' : '' %>>
+            <summary>Clube</summary>
+            <div class="nav-sublist">
+              <a class="<%= currentPath.startsWith('/members') ? 'active' : '' %>" href="/members">Sócios</a>
+              <a class="<%= currentPath.startsWith('/dues') ? 'active' : '' %>" href="/dues">Cotas</a>
+              <% if (currentUser && currentUser.role === 'admin') { %>
+                <a class="<%= currentPath.startsWith('/reports/dues') ? 'active' : '' %>" href="/reports/dues">Relatório cotas</a>
+              <% } %>
+            </div>
+          </details>
+          <%
+            const isMerchPath =
+              currentPath.startsWith('/merchandising') ||
+              currentPath.startsWith('/categories/merchandising') ||
+              currentPath.startsWith('/stock/merchandising') ||
+              currentPath.startsWith('/reports/merchandising') ||
+              currentPath.startsWith('/sales/merchandising');
+            const isBarPath =
+              currentPath.startsWith('/bar-products') ||
+              currentPath.startsWith('/categories/bar') ||
+              (currentPath.startsWith('/stock') && !currentPath.startsWith('/stock/merchandising')) ||
+              currentPath.startsWith('/sales/bar') ||
+              (currentPath.startsWith('/reports') && !currentPath.startsWith('/reports/merchandising') && !currentPath.startsWith('/reports/dues'));
+          %>
+
+          <details class="nav-group <%= isBarPath ? 'active' : '' %>" <%= isBarPath ? 'open' : '' %>>
+            <summary>Bar</summary>
+            <div class="nav-sublist">
+              <a class="<%= currentPath.startsWith('/bar-products') ? 'active' : '' %>" href="/bar-products">Produtos</a>
+              <% if (currentUser && currentUser.role === "admin") { %>
+                <a class="<%= currentPath === '/categories/bar' ? 'active' : '' %>" href="/categories/bar">Categorias</a>
+                <a class="<%= (currentPath === '/stock' || (currentPath.startsWith('/stock') && !currentPath.startsWith('/stock/merchandising'))) ? 'active' : '' %>" href="/stock">Stock</a>
+                <a class="<%= currentPath.startsWith('/sales/bar') ? 'active' : '' %>" href="/sales/bar">Vendas</a>
+                <a class="<%= (currentPath.startsWith('/reports') && !currentPath.startsWith('/reports/merchandising')) ? 'active' : '' %>" href="/reports">Relatórios</a>
+              <% } %>
+            </div>
+          </details>
+          <details class="nav-group <%= isMerchPath ? 'active' : '' %>" <%= isMerchPath ? 'open' : '' %>>
+            <summary>Merchandising</summary>
+            <div class="nav-sublist">
+              <a class="<%= currentPath === '/merchandising/sale' ? 'active' : '' %>" href="/merchandising/sale">Venda</a>
+              <a class="<%= currentPath === '/merchandising' ? 'active' : '' %>" href="/merchandising">Produtos</a>
+              <% if (currentUser && currentUser.role === "admin") { %>
+                <a class="<%= currentPath === '/categories/merchandising' ? 'active' : '' %>" href="/categories/merchandising">Categorias</a>
+                <a class="<%= currentPath.startsWith('/sales/merchandising') ? 'active' : '' %>" href="/sales/merchandising">Vendas</a>
+                <a class="<%= currentPath.startsWith('/stock/merchandising') ? 'active' : '' %>" href="/stock/merchandising">Stock</a>
+                <a class="<%= currentPath.startsWith('/reports/merchandising') ? 'active' : '' %>" href="/reports/merchandising">Relatório Merchandising</a>
+              <% } %>
+            </div>
+          </details>
+          <% if (currentUser && currentUser.role === "admin") { %>
+            <a class="<%= currentPath.startsWith('/users') ? 'active' : '' %>" href="/users">Utilizadores</a>
+            <a class="<%= currentPath.startsWith('/settings') ? 'active' : '' %>" href="/settings">Configuração</a>
+          <% } %>
+        </nav>
+
+        <div class="sidebar-user">
+          <div>
+            <strong><%= currentUser.name %></strong>
+            <small><%= currentUser.role === "admin" ? "Administrador" : "Funcionário" %></small>
+          </div>
+          <form method="post" action="/logout">
+            <button class="button ghost full" type="submit">Sair</button>
+          </form>
+        </div>
+      </aside>
+
+      <header class="mobile-header">
+        <button class="burger-button" aria-label="Abrir menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div class="mobile-brand">
+          <% if (brandMarkImage) { %>
+            <img src="/brand-mark" alt="Logótipo" />
+          <% } else { %>
+            <span>B</span>
+          <% } %>
+          <strong><%= appName %></strong>
+        </div>
+      </header>
+
+      <div class="sidebar-overlay"></div>
+
+      <main class="main-content">
+        <%- include("partials/flash") %>
+        <%- body %>
+      </main>
+    </div>
+
+    <script src="/assets/js/app.js?v=<%= assetVersion %>"></script>
+    <script src="/assets/js/virtual-keyboard.js?v=<%= assetVersion %>"></script>
+  </body>
+</html>

@@ -1,0 +1,154 @@
+Cria uma aplicação web completa para gestão de vendas de um bar.
+
+O objetivo é ter um sistema simples para vender produtos no bar, gerir stock, utilizadores, artigos e imagens dos produtos.
+
+Funcionalidades obrigatórias:
+
+1. Gestão de produtos/artigos
+- Criar, editar e apagar produtos
+- Nome do produto
+- Descrição curta
+- Categoria, por exemplo: bebidas, cervejas, cocktails, cafés, snacks, refeições rápidas, sobremesas
+- Preço de venda
+- Stock disponível
+- Imagem do produto com upload
+- Produto ativo/inativo
+- Código interno ou referência do produto
+- Indicação se o produto está disponível para venda
+
+2. Upload de imagens
+- Cada produto deve permitir upload de imagem
+- Aceitar apenas jpg, jpeg, png e webp
+- Mostrar pré-visualização da imagem
+- Guardar as imagens num volume persistente em Docker
+- Permitir alterar ou remover a imagem do produto
+
+3. Gestão de stock
+- Controlar quantidade disponível de cada produto
+- Diminuir stock automaticamente quando uma venda for registada
+- Impedir venda se não houver stock suficiente
+- Avisar quando o stock estiver baixo
+- Permitir entrada manual de stock
+- Guardar histórico de movimentos de stock:
+  - entrada
+  - saída por venda
+  - correção manual
+  - desperdício/quebra
+
+4. Sistema de vendas/POS
+- Criar uma página simples de ponto de venda para o bar
+- Mostrar produtos por categoria
+- Permitir adicionar produtos rapidamente à venda
+- Alterar quantidades
+- Remover produtos da venda
+- Calcular total automaticamente
+- Registar método de pagamento:
+  - dinheiro
+  - MB WAY
+  - multibanco
+  - cartão
+  - outro
+- Finalizar venda
+- Gerar resumo/recibo simples da venda
+
+5. Gestão de utilizadores
+- Sistema de login
+- Perfis de utilizador:
+  - Administrador
+  - Funcionário
+- Administrador pode criar, editar, bloquear e apagar utilizadores
+- Funcionário apenas pode registar vendas e consultar produtos
+- Passwords devem ser guardadas com hash seguro
+
+6. Painel de administração
+- Dashboard com:
+  - vendas do dia
+  - total faturado no dia
+  - produtos mais vendidos
+  - produtos com baixo stock
+  - número de vendas realizadas
+- Gestão de produtos
+- Gestão de categorias
+- Gestão de stock
+- Gestão de utilizadores
+- Consulta de vendas
+
+7. Relatórios
+- Relatório de vendas por dia
+- Relatório de vendas por produto
+- Relatório de vendas por funcionário
+- Relatório de stock baixo
+- Filtro por datas
+- Total vendido por método de pagamento
+
+8. Base de dados
+Criar uma estrutura de base de dados com tabelas para:
+- users
+- products
+- categories
+- product_images
+- sales
+- sale_items
+- stock_movements
+- payment_methods
+
+9. Tecnologias pretendidas
+Quero uma solução simples, organizada e fácil de correr em Docker.
+
+Sugestão de stack:
+- Aplicação web com frontend e backend
+- Backend em Node.js/Express, Laravel, Django ou tecnologia equivalente
+- Base de dados PostgreSQL ou MariaDB
+- Uploads guardados em volume Docker
+- Docker Compose para levantar tudo
+
+10. Docker
+Criar:
+- Dockerfile da aplicação
+- docker-compose.yml
+- Serviço da aplicação web
+- Serviço da base de dados
+- Volume persistente para a base de dados
+- Volume persistente para uploads/imagens
+- Ficheiro .env de exemplo
+
+11. Segurança
+- Login seguro
+- Passwords com hash
+- Validação dos uploads
+- Limitar uploads a imagens
+- Proteção contra SQL injection
+- Proteção contra XSS
+- Separação de permissões entre administrador e funcionário
+
+12. Interface
+A interface deve ser simples, moderna e responsiva.
+Deve funcionar bem em desktop, tablet e telemóvel.
+A página de vendas deve ser rápida de usar ao balcão, com botões grandes e categorias visíveis.
+
+13. Dados iniciais para teste
+Criar dados iniciais como:
+- Utilizador administrador
+- Utilizador funcionário
+- Categorias iniciais:
+  - Cervejas
+  - Bebidas sem álcool
+  - Cafés
+  - Cocktails
+  - Snacks
+  - Refeições rápidas
+- Alguns produtos de exemplo
+
+14. O que quero que entregues
+Entrega:
+- Estrutura completa do projeto
+- Código completo dos ficheiros principais
+- Dockerfile
+- docker-compose.yml
+- .env.example
+- Migrations ou script SQL da base de dados
+- Seed inicial com utilizadores, categorias e produtos
+- Instruções passo a passo para correr o projeto
+
+Objetivo final:
+Criar um sistema funcional para um bar, com ponto de venda, gestão de stock, gestão de produtos com imagens, utilizadores, permissões, relatórios e Docker.
