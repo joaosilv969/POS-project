@@ -6,8 +6,10 @@ const {
   makePercent,
   normalizeDuesReportFilters,
   normalizeReportFilters,
+  normalizeStockReportFilters,
   preserveDuesReportQuery,
   preserveReportQuery,
+  preserveStockReportQuery,
   rowsToCsv,
 } = require("../src/services/report-utils");
 
@@ -115,4 +117,60 @@ test("preserveDuesReportQuery serializes active dues filters only", () => {
   });
 
   assert.equal(query, "year=2025&start_date=2025-01-01&payment_method_id=2&status=paid&q=ana");
+});
+
+test("normalizeStockReportFilters keeps valid stock filters", () => {
+  const filters = normalizeStockReportFilters({
+    area: "bar",
+    category_id: "5",
+    status: "low",
+    movement_type: "entry",
+    start_date: "2026-01-01",
+    end_date: "bad",
+    q: "  beer  ",
+  });
+
+  assert.deepEqual(filters, {
+    area: "bar",
+    categoryId: 5,
+    status: "low",
+    movementType: "entry",
+    startDate: "2026-01-01",
+    endDate: "",
+    search: "beer",
+  });
+});
+
+test("normalizeStockReportFilters falls back on invalid stock filters", () => {
+  const filters = normalizeStockReportFilters({
+    area: "wrong",
+    category_id: "x",
+    status: "bad",
+    movement_type: "sale",
+    q: "   ",
+  });
+
+  assert.deepEqual(filters, {
+    area: "all",
+    categoryId: 0,
+    status: "all",
+    movementType: "all",
+    startDate: "",
+    endDate: "",
+    search: "",
+  });
+});
+
+test("preserveStockReportQuery serializes active stock filters only", () => {
+  const query = preserveStockReportQuery({
+    area: "merchandising",
+    categoryId: 8,
+    status: "out",
+    movementType: "waste",
+    startDate: "2026-01-01",
+    endDate: "",
+    search: "shirt",
+  });
+
+  assert.equal(query, "area=merchandising&category_id=8&status=out&movement_type=waste&start_date=2026-01-01&q=shirt");
 });

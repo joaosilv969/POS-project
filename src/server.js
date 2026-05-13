@@ -20,8 +20,10 @@ const {
   makePercent,
   normalizeDuesReportFilters,
   normalizeReportFilters,
+  normalizeStockReportFilters,
   preserveDuesReportQuery,
   preserveReportQuery,
+  preserveStockReportQuery,
   rowsToCsv,
 } = require("./services/report-utils");
 const { createProductImageUpload } = require("./uploads/product-images");
@@ -387,6 +389,83 @@ function memberSearchFilter(filters, alias = "m") {
 
 function duesExportLink(type, queryString) {
   return `/reports/dues/export/${type}${queryString ? `?${queryString}` : ""}`;
+}
+
+function stockProductFilters(filters) {
+  const clauses = ["p.deleted_at IS NULL"];
+  const params = [];
+
+  if (filters.area !== "all") {
+    clauses.push("p.product_type = ?");
+    params.push(filters.area);
+  }
+
+  if (filters.categoryId) {
+    clauses.push("p.category_id = ?");
+    params.push(filters.categoryId);
+  }
+
+  if (filters.status === "low") {
+    clauses.push("p.stock > 0 AND p.stock <= p.low_stock_threshold");
+  } else if (filters.status === "out") {
+    clauses.push("p.stock <= 0");
+  } else if (filters.status === "ok") {
+    clauses.push("p.stock > p.low_stock_threshold");
+  }
+
+  if (filters.search) {
+    clauses.push("(p.name LIKE ? OR p.reference_code LIKE ?)");
+    params.push(`%${filters.search}%`, `%${filters.search}%`);
+  }
+
+  return {
+    where: `WHERE ${clauses.join(" AND ")}`,
+    params,
+  };
+}
+
+function stockMovementFilters(filters) {
+  const clauses = [];
+  const params = [];
+
+  if (filters.area !== "all") {
+    clauses.push("p.product_type = ?");
+    params.push(filters.area);
+  }
+
+  if (filters.categoryId) {
+    clauses.push("p.category_id = ?");
+    params.push(filters.categoryId);
+  }
+
+  if (filters.movementType !== "all") {
+    clauses.push("sm.type = ?");
+    params.push(filters.movementType);
+  }
+
+  if (filters.startDate) {
+    clauses.push("sm.created_at >= ?");
+    params.push(filters.startDate);
+  }
+
+  if (filters.endDate) {
+    clauses.push("sm.created_at < DATE_ADD(?, INTERVAL 1 DAY)");
+    params.push(filters.endDate);
+  }
+
+  if (filters.search) {
+    clauses.push("(p.name LIKE ? OR p.reference_code LIKE ?)");
+    params.push(`%${filters.search}%`, `%${filters.search}%`);
+  }
+
+  return {
+    where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "",
+    params,
+  };
+}
+
+function stockExportLink(type, queryString) {
+  return `/stock/export/${type}${queryString ? `?${queryString}` : ""}`;
 }
 
 app.get("/", requireAuth, (req, res) => {
@@ -1023,167 +1102,238 @@ app.post(
   }),
 );
 
+async function renderStock(req, res, defaults = {}) {
+  const filters = normalizeStockReportFilters(req.query, defaults);
+  const queryString = preserveStockReportQuery(filters);
+  const productFilters = stockProductFilters(filters);
+  const movementFilters = stockMovementFilters(filters);
+  const movementAction = filters.area === "merchandising" ? "/stock/merchandising/movements" : "/stock/movements";
+
+  const [categories] = await pool.execute(
+    `SELECT id, name, scope
+     FROM categories
+     WHERE active = 1 ${filters.area !== "all" ? "AND scope = ?" : ""}
+     ORDER BY scope, name`,
+    filters.area !== "all" ? [filters.area] : [],
+  );
+
+  const [products] = await pool.execute(
+    `SELECT p.*, c.name AS category_name,
+            CASE
+              WHEN p.stock <= 0 THEN 'out'
+              WHEN p.stock <= p.low_stock_threshold THEN 'low'
+              ELSE 'ok'
+            END AS stock_status,
+            (p.stock * p.price) AS stock_value
+     FROM products p
+     INNER JOIN categories c ON c.id = p.category_id
+     ${productFilters.where}
+     ORDER BY (p.stock <= 0) DESC, (p.stock <= p.low_stock_threshold) DESC, p.name ASC`,
+    productFilters.params,
+  );
+
+  const [movements] = await pool.execute(
+    `SELECT sm.*, p.name AS product_name, p.product_type, u.name AS user_name
+     FROM stock_movements sm
+     LEFT JOIN products p ON p.id = sm.product_id
+     INNER JOIN users u ON u.id = sm.user_id
+     ${movementFilters.where}
+     ORDER BY sm.created_at DESC
+     LIMIT 200`,
+    movementFilters.params,
+  );
+
+  const [[summary]] = await pool.execute(
+    `SELECT
+       COUNT(*) AS products_count,
+       SUM(CASE WHEN p.stock <= 0 THEN 1 ELSE 0 END) AS out_count,
+       SUM(CASE WHEN p.stock > 0 AND p.stock <= p.low_stock_threshold THEN 1 ELSE 0 END) AS low_count,
+       COALESCE(SUM(p.stock), 0) AS total_units,
+       COALESCE(SUM(p.stock * p.price), 0) AS stock_value
+     FROM products p
+     ${productFilters.where}`,
+    productFilters.params,
+  );
+
+  const [movementByType] = await pool.execute(
+    `SELECT sm.type, COUNT(*) AS movements_count, COALESCE(SUM(ABS(sm.quantity_change)), 0) AS units
+     FROM stock_movements sm
+     LEFT JOIN products p ON p.id = sm.product_id
+     ${movementFilters.where}
+     GROUP BY sm.type
+     ORDER BY units DESC`,
+    movementFilters.params,
+  );
+
+  const lowStock = products.filter((product) => product.stock_status !== "ok").slice(0, 12);
+  const maxShortage = Math.max(
+    0,
+    ...lowStock.map((product) => Math.max(0, Number(product.low_stock_threshold || 0) - Number(product.stock || 0))),
+  );
+  const lowStockRank = lowStock.map((product) => {
+    const shortage = Math.max(0, Number(product.low_stock_threshold || 0) - Number(product.stock || 0));
+    return {
+      ...product,
+      shortage,
+      percent: makePercent(shortage || 1, maxShortage || 1),
+    };
+  });
+
+  res.render("stock", {
+    title: filters.area === "merchandising" ? "Stock Merchandising" : "Stock",
+    filters,
+    queryString,
+    categories,
+    exportLink: (type) => stockExportLink(type, queryString),
+    movementAction,
+    products,
+    movements,
+    summary,
+    movementByType: decorateReportRows(movementByType, "units"),
+    lowStockRank,
+  });
+}
+
 app.get(
   "/stock",
   requireAdmin,
-  asyncRoute(async (req, res) => {
-    const [products] = await pool.execute(
-      `SELECT p.*, c.name AS category_name
-       FROM products p
-       INNER JOIN categories c ON c.id = p.category_id
-       WHERE p.deleted_at IS NULL
-       ORDER BY (p.stock <= p.low_stock_threshold) DESC, p.name ASC`,
-    );
-    const [movements] = await pool.execute(
-      `SELECT sm.*, p.name AS product_name, u.name AS user_name
-       FROM stock_movements sm
-       LEFT JOIN products p ON p.id = sm.product_id
-       INNER JOIN users u ON u.id = sm.user_id
-       ORDER BY sm.created_at DESC
-       LIMIT 100`,
-    );
-
-    res.render("stock", { title: "Stock", movementAction: "/stock/movements", products, movements });
-  }),
+  asyncRoute(async (req, res) => renderStock(req, res)),
 );
 
 app.get(
   "/stock/merchandising",
   requireAdmin,
-  asyncRoute(async (req, res) => {
-    const [products] = await pool.execute(
-      `SELECT p.*, c.name AS category_name
-       FROM products p
-       INNER JOIN categories c ON c.id = p.category_id
-       WHERE p.deleted_at IS NULL AND p.product_type = 'merchandising'
-       ORDER BY (p.stock <= p.low_stock_threshold) DESC, p.name ASC`,
-    );
-    const [movements] = await pool.execute(
-      `SELECT sm.*, p.name AS product_name, u.name AS user_name
-       FROM stock_movements sm
-       INNER JOIN products p ON p.id = sm.product_id AND p.product_type = 'merchandising'
-       INNER JOIN users u ON u.id = sm.user_id
-       ORDER BY sm.created_at DESC
-       LIMIT 100`,
+  asyncRoute(async (req, res) => renderStock(req, res, { area: "merchandising" })),
+);
+
+async function handleStockMovement(req, res, options = {}) {
+  const productId = parseInteger(req.body.product_id);
+  const type = String(req.body.type || "");
+  const quantityInput = parseInteger(req.body.quantity);
+  const reason = String(req.body.reason || "").trim();
+  const allowedTypes = ["entry", "manual_adjustment", "waste"];
+  const returnPath = options.returnPath || "/stock";
+
+  if (!productId || !allowedTypes.includes(type) || quantityInput === 0) {
+    flash(req, "error", "Indique produto, tipo e quantidade.");
+    return res.redirect(returnPath);
+  }
+
+  const delta = type === "entry" ? Math.abs(quantityInput) : type === "waste" ? -Math.abs(quantityInput) : quantityInput;
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+    const typeFilter = options.productType ? "AND product_type = ?" : "";
+    const params = options.productType ? [productId, options.productType] : [productId];
+    const [[product]] = await connection.execute(
+      `SELECT id, stock FROM products WHERE id = ? AND deleted_at IS NULL ${typeFilter} FOR UPDATE`,
+      params,
     );
 
-    res.render("stock", {
-      title: "Stock Merchandising",
-      movementAction: "/stock/merchandising/movements",
-      products,
-      movements,
-    });
-  }),
-);
+    if (!product) {
+      throw new Error("Produto não encontrado.");
+    }
+
+    const quantityBefore = product.stock;
+    const quantityAfter = quantityBefore + delta;
+
+    if (quantityAfter < 0) {
+      throw new Error("O movimento deixaria o stock negativo.");
+    }
+
+    await connection.execute("UPDATE products SET stock = ? WHERE id = ?", [quantityAfter, productId]);
+    await connection.execute(
+      `INSERT INTO stock_movements
+        (product_id, user_id, type, quantity_change, quantity_before, quantity_after, reason)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [productId, req.session.user.id, type, delta, quantityBefore, quantityAfter, reason],
+    );
+    await connection.commit();
+    flash(req, "success", "Movimento de stock registado.");
+  } catch (error) {
+    await connection.rollback();
+    flash(req, "error", error.message);
+  } finally {
+    connection.release();
+  }
+
+  return res.redirect(returnPath);
+}
 
 app.post(
   "/stock/movements",
   requireAdmin,
-  asyncRoute(async (req, res) => {
-    const productId = parseInteger(req.body.product_id);
-    const type = String(req.body.type || "");
-    const quantityInput = parseInteger(req.body.quantity);
-    const reason = String(req.body.reason || "").trim();
-    const allowedTypes = ["entry", "manual_adjustment", "waste"];
-
-    if (!productId || !allowedTypes.includes(type) || quantityInput === 0) {
-      flash(req, "error", "Indique produto, tipo e quantidade.");
-      return res.redirect("/stock");
-    }
-
-    const delta = type === "entry" ? Math.abs(quantityInput) : type === "waste" ? -Math.abs(quantityInput) : quantityInput;
-    const connection = await pool.getConnection();
-
-    try {
-      await connection.beginTransaction();
-      const [[product]] = await connection.execute("SELECT id, stock FROM products WHERE id = ? AND deleted_at IS NULL FOR UPDATE", [
-        productId,
-      ]);
-
-      if (!product) {
-        throw new Error("Produto não encontrado.");
-      }
-
-      const quantityBefore = product.stock;
-      const quantityAfter = quantityBefore + delta;
-
-      if (quantityAfter < 0) {
-        throw new Error("O movimento deixaria o stock negativo.");
-      }
-
-      await connection.execute("UPDATE products SET stock = ? WHERE id = ?", [quantityAfter, productId]);
-      await connection.execute(
-        `INSERT INTO stock_movements
-          (product_id, user_id, type, quantity_change, quantity_before, quantity_after, reason)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [productId, req.session.user.id, type, delta, quantityBefore, quantityAfter, reason],
-      );
-      await connection.commit();
-      flash(req, "success", "Movimento de stock registado.");
-    } catch (error) {
-      await connection.rollback();
-      flash(req, "error", error.message);
-    } finally {
-      connection.release();
-    }
-
-    return res.redirect("/stock");
-  }),
+  asyncRoute(async (req, res) => handleStockMovement(req, res, { returnPath: "/stock" })),
 );
 
 app.post(
   "/stock/merchandising/movements",
   requireAdmin,
+  asyncRoute(async (req, res) => handleStockMovement(req, res, { returnPath: "/stock/merchandising", productType: "merchandising" })),
+);
+
+app.get(
+  "/stock/export/:type",
+  requireAdmin,
   asyncRoute(async (req, res) => {
-    const productId = parseInteger(req.body.product_id);
-    const type = String(req.body.type || "");
-    const quantityInput = parseInteger(req.body.quantity);
-    const reason = String(req.body.reason || "").trim();
-    const allowedTypes = ["entry", "manual_adjustment", "waste"];
+    const filters = normalizeStockReportFilters(req.query);
+    const productFilters = stockProductFilters(filters);
+    const movementFilters = stockMovementFilters(filters);
+    const type = String(req.params.type || "");
+    const exports = {
+      products: {
+        filename: "stock-produtos.csv",
+        columns: [
+          { key: "name", label: "Produto" },
+          { key: "reference_code", label: "Referencia" },
+          { key: "product_type", label: "Area" },
+          { key: "category_name", label: "Categoria" },
+          { key: "stock", label: "Stock" },
+          { key: "low_stock_threshold", label: "Alerta" },
+          { key: "price", label: "Preco" },
+          { key: "stock_value", label: "Valor stock" },
+        ],
+        sql: `SELECT p.name, p.reference_code, p.product_type, c.name AS category_name,
+                     p.stock, p.low_stock_threshold, p.price, (p.stock * p.price) AS stock_value
+              FROM products p
+              INNER JOIN categories c ON c.id = p.category_id
+              ${productFilters.where}
+              ORDER BY p.name ASC`,
+        params: productFilters.params,
+      },
+      movements: {
+        filename: "stock-movimentos.csv",
+        columns: [
+          { key: "created_at", label: "Data" },
+          { key: "product_name", label: "Produto" },
+          { key: "type", label: "Tipo" },
+          { key: "quantity_change", label: "Movimento" },
+          { key: "quantity_before", label: "Antes" },
+          { key: "quantity_after", label: "Depois" },
+          { key: "user_name", label: "Utilizador" },
+          { key: "reason", label: "Motivo" },
+        ],
+        sql: `SELECT sm.created_at, p.name AS product_name, sm.type, sm.quantity_change,
+                     sm.quantity_before, sm.quantity_after, u.name AS user_name, sm.reason
+              FROM stock_movements sm
+              LEFT JOIN products p ON p.id = sm.product_id
+              INNER JOIN users u ON u.id = sm.user_id
+              ${movementFilters.where}
+              ORDER BY sm.created_at DESC`,
+        params: movementFilters.params,
+      },
+    };
 
-    if (!productId || !allowedTypes.includes(type) || quantityInput === 0) {
-      flash(req, "error", "Indique produto, tipo e quantidade.");
-      return res.redirect("/stock/merchandising");
+    const definition = exports[type];
+    if (!definition) {
+      return res.redirect("/stock");
     }
 
-    const delta = type === "entry" ? Math.abs(quantityInput) : type === "waste" ? -Math.abs(quantityInput) : quantityInput;
-    const connection = await pool.getConnection();
-
-    try {
-      await connection.beginTransaction();
-      const [[product]] = await connection.execute(
-        "SELECT id, stock FROM products WHERE id = ? AND deleted_at IS NULL AND product_type = 'merchandising' FOR UPDATE",
-        [productId],
-      );
-
-      if (!product) {
-        throw new Error("Produto não encontrado.");
-      }
-
-      const quantityBefore = product.stock;
-      const quantityAfter = quantityBefore + delta;
-
-      if (quantityAfter < 0) {
-        throw new Error("O movimento deixaria o stock negativo.");
-      }
-
-      await connection.execute("UPDATE products SET stock = ? WHERE id = ?", [quantityAfter, productId]);
-      await connection.execute(
-        `INSERT INTO stock_movements
-          (product_id, user_id, type, quantity_change, quantity_before, quantity_after, reason)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [productId, req.session.user.id, type, delta, quantityBefore, quantityAfter, reason],
-      );
-      await connection.commit();
-      flash(req, "success", "Movimento de stock registado.");
-    } catch (error) {
-      await connection.rollback();
-      flash(req, "error", error.message);
-    } finally {
-      connection.release();
-    }
-
-    return res.redirect("/stock/merchandising");
+    const [rows] = await pool.execute(definition.sql, definition.params);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${definition.filename}"`);
+    return res.send(rowsToCsv(definition.columns, rows));
   }),
 );
 

@@ -1,5 +1,7 @@
 const VALID_AREAS = new Set(["all", "bar", "merchandising"]);
 const VALID_DUES_STATUSES = new Set(["all", "paid", "partial", "unpaid"]);
+const VALID_STOCK_STATUSES = new Set(["all", "ok", "low", "out"]);
+const VALID_STOCK_MOVEMENT_TYPES = new Set(["all", "entry", "manual_adjustment", "waste"]);
 
 function isDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
@@ -99,6 +101,58 @@ function preserveDuesReportQuery(filters) {
   return params.toString();
 }
 
+function normalizeStockReportFilters(query = {}, defaults = {}) {
+  const forcedArea = VALID_AREAS.has(defaults.area) && defaults.area !== "all" ? defaults.area : null;
+  const area = forcedArea || (VALID_AREAS.has(query.area) ? query.area : "all");
+  const status = VALID_STOCK_STATUSES.has(query.status) ? query.status : "all";
+  const movementType = VALID_STOCK_MOVEMENT_TYPES.has(query.movement_type) ? query.movement_type : "all";
+  const search = String(query.q || "").trim().slice(0, 120);
+
+  return {
+    area,
+    categoryId: positiveInteger(query.category_id),
+    status,
+    movementType,
+    startDate: isDate(query.start_date) ? query.start_date : "",
+    endDate: isDate(query.end_date) ? query.end_date : "",
+    search,
+  };
+}
+
+function preserveStockReportQuery(filters) {
+  const params = new URLSearchParams();
+
+  if (filters.area && filters.area !== "all") {
+    params.set("area", filters.area);
+  }
+
+  if (filters.categoryId) {
+    params.set("category_id", String(filters.categoryId));
+  }
+
+  if (filters.status && filters.status !== "all") {
+    params.set("status", filters.status);
+  }
+
+  if (filters.movementType && filters.movementType !== "all") {
+    params.set("movement_type", filters.movementType);
+  }
+
+  if (filters.startDate) {
+    params.set("start_date", filters.startDate);
+  }
+
+  if (filters.endDate) {
+    params.set("end_date", filters.endDate);
+  }
+
+  if (filters.search) {
+    params.set("q", filters.search);
+  }
+
+  return params.toString();
+}
+
 function makePercent(value, max) {
   const number = Number(value || 0);
   const maximum = Number(max || 0);
@@ -137,7 +191,9 @@ module.exports = {
   makePercent,
   normalizeDuesReportFilters,
   normalizeReportFilters,
+  normalizeStockReportFilters,
   preserveDuesReportQuery,
   preserveReportQuery,
+  preserveStockReportQuery,
   rowsToCsv,
 };

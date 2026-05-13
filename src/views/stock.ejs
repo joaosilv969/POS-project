@@ -1,11 +1,97 @@
 <section class="page-header">
   <div>
-    <p class="eyebrow">Inventario</p>
+    <p class="eyebrow">Inventário</p>
     <h1><%= title %></h1>
+    <p class="text-muted">Controlo de stock, alertas e histórico de movimentos.</p>
+  </div>
+  <div class="button-row">
+    <a class="button secondary" href="<%= exportLink('products') %>">Exportar produtos</a>
+    <a class="button secondary" href="<%= exportLink('movements') %>">Exportar movimentos</a>
   </div>
 </section>
 
-<section class="two-column align-start">
+<form class="panel report-filter-panel" method="get" action="<%= filters.area === 'merchandising' ? '/stock/merchandising' : '/stock' %>">
+  <div class="report-filter-grid">
+    <% if (filters.area !== 'merchandising') { %>
+      <label>
+        Área
+        <select name="area">
+          <option value="all" <%= filters.area === 'all' ? 'selected' : '' %>>Todas</option>
+          <option value="bar" <%= filters.area === 'bar' ? 'selected' : '' %>>Bar</option>
+          <option value="merchandising" <%= filters.area === 'merchandising' ? 'selected' : '' %>>Merchandising</option>
+        </select>
+      </label>
+    <% } %>
+    <label>
+      Categoria
+      <select name="category_id">
+        <option value="">Todas</option>
+        <% categories.forEach((category) => { %>
+          <option value="<%= category.id %>" <%= filters.categoryId === category.id ? 'selected' : '' %>><%= category.scope === 'merchandising' ? 'Merch - ' : 'Bar - ' %><%= category.name %></option>
+        <% }) %>
+      </select>
+    </label>
+    <label>
+      Estado stock
+      <select name="status">
+        <option value="all" <%= filters.status === 'all' ? 'selected' : '' %>>Todos</option>
+        <option value="ok" <%= filters.status === 'ok' ? 'selected' : '' %>>OK</option>
+        <option value="low" <%= filters.status === 'low' ? 'selected' : '' %>>Baixo</option>
+        <option value="out" <%= filters.status === 'out' ? 'selected' : '' %>>Esgotado</option>
+      </select>
+    </label>
+    <label>
+      Tipo movimento
+      <select name="movement_type">
+        <option value="all" <%= filters.movementType === 'all' ? 'selected' : '' %>>Todos</option>
+        <option value="entry" <%= filters.movementType === 'entry' ? 'selected' : '' %>>Entrada</option>
+        <option value="manual_adjustment" <%= filters.movementType === 'manual_adjustment' ? 'selected' : '' %>>Correção</option>
+        <option value="waste" <%= filters.movementType === 'waste' ? 'selected' : '' %>>Desperdício</option>
+      </select>
+    </label>
+    <label>
+      Início
+      <input type="date" name="start_date" value="<%= filters.startDate %>" />
+    </label>
+    <label>
+      Fim
+      <input type="date" name="end_date" value="<%= filters.endDate %>" />
+    </label>
+    <label>
+      Produto
+      <input type="search" name="q" value="<%= filters.search %>" placeholder="Nome ou referência" />
+    </label>
+  </div>
+  <div class="form-actions">
+    <button class="button secondary" type="submit">Filtrar</button>
+    <a class="button ghost" href="<%= filters.area === 'merchandising' ? '/stock/merchandising' : '/stock' %>">Limpar</a>
+  </div>
+</form>
+
+<section class="analytics-kpis">
+  <article class="stat-card">
+    <span>Produtos</span>
+    <strong><%= summary.products_count || 0 %></strong>
+  </article>
+  <article class="stat-card warning">
+    <span>Stock baixo</span>
+    <strong><%= summary.low_count || 0 %></strong>
+  </article>
+  <article class="stat-card warning">
+    <span>Esgotados</span>
+    <strong><%= summary.out_count || 0 %></strong>
+  </article>
+  <article class="stat-card">
+    <span>Unidades</span>
+    <strong><%= summary.total_units || 0 %></strong>
+  </article>
+  <article class="stat-card">
+    <span>Valor stock</span>
+    <strong><%= money(summary.stock_value || 0) %></strong>
+  </article>
+</section>
+
+<section class="analytics-grid">
   <form class="panel form-stack" method="post" action="<%= movementAction || '/stock/movements' %>">
     <div class="panel-header">
       <h2>Novo movimento</h2>
@@ -25,7 +111,7 @@
       <select name="type" required>
         <option value="entry">Entrada</option>
         <option value="manual_adjustment">Correção manual</option>
-        <option value="waste">Desperdicio/quebra</option>
+        <option value="waste">Desperdício/quebra</option>
       </select>
     </label>
 
@@ -36,44 +122,108 @@
 
     <label>
       Motivo
-      <input name="reason" placeholder="Ex.: compra, inventario, quebra" />
+      <input name="reason" placeholder="Ex.: compra, inventário, quebra" />
     </label>
 
     <button class="button primary" type="submit">Registar movimento</button>
   </form>
 
-  <div class="panel">
-    <div class="panel-header">
-      <h2>Produtos em stock</h2>
+  <article class="panel">
+    <div class="panel-header"><h2>Movimentos por tipo</h2></div>
+    <div class="bar-list">
+      <% movementByType.forEach((row) => { %>
+        <div class="bar-row">
+          <div>
+            <strong><%= row.type === 'entry' ? 'Entradas' : row.type === 'waste' ? 'Desperdício' : row.type === 'manual_adjustment' ? 'Correções' : row.type %></strong>
+            <span><%= row.movements_count %> movimentos</span>
+          </div>
+          <div class="bar-track"><span style="width:<%= row.percent %>%"></span></div>
+          <b><%= row.units %> un.</b>
+        </div>
+      <% }) %>
+      <% if (movementByType.length === 0) { %><div class="empty-state">Sem movimentos.</div><% } %>
     </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
+  </article>
+</section>
+
+<section class="analytics-grid">
+  <article class="panel">
+    <div class="panel-header"><h2>Alertas de stock</h2></div>
+    <div class="bar-list">
+      <% lowStockRank.forEach((product) => { %>
+        <div class="bar-row">
+          <div><strong><%= product.name %></strong><span><%= product.category_name %> · alerta <%= product.low_stock_threshold %></span></div>
+          <div class="bar-track danger"><span style="width:<%= product.percent %>%"></span></div>
+          <b><%= product.stock %></b>
+        </div>
+      <% }) %>
+      <% if (lowStockRank.length === 0) { %><div class="empty-state">Sem alertas de stock.</div><% } %>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-header"><h2>Resumo de estado</h2></div>
+    <% const totalProducts = Number(summary.products_count || 0); %>
+    <div class="bar-list">
+      <div class="bar-row">
+        <div><strong>OK</strong><span>Acima do alerta</span></div>
+        <div class="bar-track"><span style="width:<%= makePercent(totalProducts - Number(summary.low_count || 0) - Number(summary.out_count || 0), totalProducts) %>%"></span></div>
+        <b><%= totalProducts - Number(summary.low_count || 0) - Number(summary.out_count || 0) %></b>
+      </div>
+      <div class="bar-row">
+        <div><strong>Baixo</strong><span>Precisa reposição</span></div>
+        <div class="bar-track danger"><span style="width:<%= makePercent(summary.low_count, totalProducts) %>%"></span></div>
+        <b><%= summary.low_count || 0 %></b>
+      </div>
+      <div class="bar-row">
+        <div><strong>Esgotado</strong><span>Sem stock</span></div>
+        <div class="bar-track danger"><span style="width:<%= makePercent(summary.out_count, totalProducts) %>%"></span></div>
+        <b><%= summary.out_count || 0 %></b>
+      </div>
+    </div>
+  </article>
+</section>
+
+<section class="panel">
+  <div class="panel-header">
+    <h2>Produtos em stock</h2>
+    <a class="button ghost" href="<%= exportLink('products') %>">CSV</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Produto</th>
+          <th>Área</th>
+          <th>Categoria</th>
+          <th>Stock</th>
+          <th>Alerta</th>
+          <th>Valor</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% products.forEach((product) => { %>
           <tr>
-            <th>Produto</th>
-            <th>Categoria</th>
-            <th>Stock</th>
-            <th>Alerta</th>
+            <td><%= product.name %></td>
+            <td><%= product.product_type === 'bar' ? 'Bar' : 'Merchandising' %></td>
+            <td><%= product.category_name %></td>
+            <td><span class="<%= product.stock_status === 'out' || product.stock_status === 'low' ? 'pill danger' : 'pill success' %>"><%= product.stock %></span></td>
+            <td><%= product.low_stock_threshold %></td>
+            <td><%= money(product.stock_value || 0) %></td>
+            <td><a class="button ghost" href="/products/<%= product.id %>/edit">Editar</a></td>
           </tr>
-        </thead>
-        <tbody>
-          <% products.forEach((product) => { %>
-            <tr>
-              <td><%= product.name %></td>
-              <td><%= product.category_name %></td>
-              <td><span class="<%= product.stock <= product.low_stock_threshold ? 'pill danger' : 'pill success' %>"><%= product.stock %></span></td>
-              <td><%= product.low_stock_threshold %></td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
-    </div>
+        <% }) %>
+        <% if (products.length === 0) { %><tr><td colspan="7">Sem produtos.</td></tr><% } %>
+      </tbody>
+    </table>
   </div>
 </section>
 
 <section class="panel">
   <div class="panel-header">
     <h2>Histórico de movimentos</h2>
+    <a class="button ghost" href="<%= exportLink('movements') %>">CSV</a>
   </div>
   <div class="table-wrap">
     <table>
@@ -97,7 +247,7 @@
           <tr>
             <td><%= formatDateTime(movement.created_at) %></td>
             <td><%= movement.product_name || "Produto removido" %></td>
-            <td><%= movement.type %></td>
+            <td><%= movement.type === 'entry' ? 'Entrada' : movement.type === 'waste' ? 'Desperdício' : movement.type === 'manual_adjustment' ? 'Correção' : movement.type %></td>
             <td><%= movement.quantity_change %></td>
             <td><%= movement.quantity_before %></td>
             <td><%= movement.quantity_after %></td>
