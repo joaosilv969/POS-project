@@ -3133,74 +3133,334 @@ app.get(
   "/reports/merchandising",
   requireAuth,
   asyncRoute(async (req, res) => {
-    const filters = dateFilters(req.query);
+    const filters = normalizeMerchReportFilters(req.query);
+    const queryString = preserveMerchReportQuery(filters);
+    const reportFilters = merchReportFilters(filters);
     const categories = await getActiveCategories("merchandising");
-    const selectedCategoryId = parseInteger(req.query.category_id, 0);
-    const categoryFilter = selectedCategoryId ? "AND p.category_id = ?" : "";
-    const categoryParams = selectedCategoryId ? [selectedCategoryId] : [];
+    const [paymentMethodOptions, userRows] = await Promise.all([
+      paymentMethods.getActivePaymentMethods(),
+      pool.execute("SELECT id, name FROM users WHERE active = 1 ORDER BY name"),
+    ]);
+    const userOptions = userRows[0];
 
-    // Vendas de merchandising por sócio
-    const [merchByMember] = await pool.execute(
-      `SELECT s.member_number, s.member_name, COUNT(s.id) AS sales_count, SUM(s.total_amount) AS total
-       FROM sales s
-       INNER JOIN sale_items si ON si.sale_id = s.id
-       INNER JOIN products p ON p.id = si.product_id
-       WHERE s.status = 'completed' AND p.product_type = 'merchandising' ${filters.where} ${categoryFilter}
-       GROUP BY s.member_number, s.member_name
-       ORDER BY total DESC`,
-      [...filters.params, ...categoryParams],
-    );
-
-    // Vendas de merchandising por produto
-    const [merchByProduct] = await pool.execute(
-      `SELECT si.product_name, SUM(si.quantity) AS quantity, SUM(si.line_total) AS total
+    const [[summary]] = await pool.execute(
+      `SELECT COUNT(DISTINCT s.id) AS sales_count,
+              COALESCE(SUM(si.quantity), 0) AS items_sold,
+              COALESCE(SUM(si.line_total), 0) AS total,
+              COUNT(DISTINCT NULLIF(CONCAT(COALESCE(s.member_number, ''), '|', COALESCE(s.member_name, '')), '|')) AS buyers_count
        FROM sale_items si
        INNER JOIN sales s ON s.id = si.sale_id
        INNER JOIN products p ON p.id = si.product_id
-       WHERE s.status = 'completed' AND p.product_type = 'merchandising' ${filters.where} ${categoryFilter}
-       GROUP BY si.product_name
-       ORDER BY quantity DESC`,
-      [...filters.params, ...categoryParams],
+       ${reportFilters.where}`,
+      reportFilters.params,
     );
 
-    // Quem comprou o quê (agrupado por sócio e produto)
+    const [merchByMember] = await pool.execute(
+      `SELECT s.member_number, s.member_name,
+              COUNT(DISTINCT s.id) AS sales_count,
+              COALESCE(SUM(si.quantity), 0) AS quantity,
+              COALESCE(SUM(si.line_total), 0) AS total
+       FROM sale_items si
+       INNER JOIN sales s ON s.id = si.sale_id
+       INNER JOIN products p ON p.id = si.product_id
+       ${reportFilters.where}
+       GROUP BY s.member_number, s.member_name
+       ORDER BY total DESC
+       LIMIT 50`,
+      reportFilters.params,
+    );
+
+    const [merchByProduct] = await pool.execute(
+      `SELECT p.id AS product_id, si.product_name, c.name AS category_name,
+              COUNT(DISTINCT s.id) AS sales_count,
+              COALESCE(SUM(si.quantity), 0) AS quantity,
+              COALESCE(SUM(si.line_total), 0) AS total
+       FROM sale_items si
+       INNER JOIN sales s ON s.id = si.sale_id
+       INNER JOIN products p ON p.id = si.product_id
+       INNER JOIN categories c ON c.id = p.category_id
+       ${reportFilters.where}
+       GROUP BY p.id, si.product_name, c.name
+       ORDER BY total DESC, quantity DESC
+       LIMIT 50`,
+      reportFilters.params,
+    );
+
     const [merchByMemberProduct] = await pool.execute(
       `SELECT
          s.member_number,
          s.member_name,
          si.product_name,
          COUNT(DISTINCT s.id) AS sales_count,
-         SUM(si.quantity) AS quantity,
-         SUM(si.line_total) AS total
+         COALESCE(SUM(si.quantity), 0) AS quantity,
+         COALESCE(SUM(si.line_total), 0) AS total
        FROM sale_items si
        INNER JOIN sales s ON s.id = si.sale_id
        INNER JOIN products p ON p.id = si.product_id
-       WHERE s.status = 'completed' AND p.product_type = 'merchandising' ${filters.where} ${categoryFilter}
+       ${reportFilters.where}
        GROUP BY s.member_number, s.member_name, si.product_name
-       ORDER BY total DESC, quantity DESC`,
-      [...filters.params, ...categoryParams],
+       ORDER BY total DESC, quantity DESC
+       LIMIT 200`,
+      reportFilters.params,
     );
 
-    // Total geral de merchandising
-    const [merchTotal] = await pool.execute(
-      `SELECT COUNT(DISTINCT s.id) AS sales_count, SUM(s.total_amount) AS total
-       FROM sales s
-       INNER JOIN sale_items si ON si.sale_id = s.id
+    const [salesByDay] = await pool.execute(
+      `SELECT DATE_FORMAT(s.created_at, '%Y-%m-%d') AS day,
+              COUNT(DISTINCT s.id) AS sales_count,
+              COALESCE(SUM(si.quantity), 0) AS quantity,
+              COALESCE(SUM(si.line_total), 0) AS total
+       FROM sale_items si
+       INNER JOIN sales s ON s.id = si.sale_id
        INNER JOIN products p ON p.id = si.product_id
-       WHERE s.status = 'completed' AND p.product_type = 'merchandising' ${filters.where} ${categoryFilter}`,
-      [...filters.params, ...categoryParams],
+       ${reportFilters.where}
+       GROUP BY DATE_FORMAT(s.created_at, '%Y-%m-%d')
+       ORDER BY day ASC
+       LIMIT 90`,
+      reportFilters.params,
     );
+
+    const [salesByCategory] = await pool.execute(
+      `SELECT c.name, COUNT(DISTINCT s.id) AS sales_count,
+              COALESCE(SUM(si.quantity), 0) AS quantity,
+              COALESCE(SUM(si.line_total), 0) AS total
+       FROM sale_items si
+       INNER JOIN sales s ON s.id = si.sale_id
+       INNER JOIN products p ON p.id = si.product_id
+       INNER JOIN categories c ON c.id = p.category_id
+       ${reportFilters.where}
+       GROUP BY c.id, c.name
+       ORDER BY total DESC`,
+      reportFilters.params,
+    );
+
+    const [paymentTotals] = await pool.execute(
+      `SELECT pm.name, pm.code, COUNT(DISTINCT s.id) AS sales_count, COALESCE(SUM(si.line_total), 0) AS total
+       FROM sale_items si
+       INNER JOIN sales s ON s.id = si.sale_id
+       INNER JOIN payment_methods pm ON pm.id = s.payment_method_id
+       INNER JOIN products p ON p.id = si.product_id
+       ${reportFilters.where}
+       GROUP BY pm.id, pm.name, pm.code
+       ORDER BY total DESC`,
+      reportFilters.params,
+    );
+
+    const [recentSales] = await pool.execute(
+      `SELECT s.id, s.receipt_number, s.member_number, s.member_name, s.created_at,
+              u.name AS user_name, pm.name AS payment_method_name,
+              COALESCE(SUM(si.quantity), 0) AS quantity,
+              COALESCE(SUM(si.line_total), 0) AS total
+       FROM sale_items si
+       INNER JOIN sales s ON s.id = si.sale_id
+       INNER JOIN products p ON p.id = si.product_id
+       INNER JOIN users u ON u.id = s.user_id
+       INNER JOIN payment_methods pm ON pm.id = s.payment_method_id
+       ${reportFilters.where}
+       GROUP BY s.id, s.receipt_number, s.member_number, s.member_name, s.created_at, u.name, pm.name
+       ORDER BY s.created_at DESC, s.id DESC
+       LIMIT 50`,
+      reportFilters.params,
+    );
+
+    const [lowStock] = await pool.execute(
+      `SELECT p.*, c.name AS category_name
+       FROM products p
+       INNER JOIN categories c ON c.id = p.category_id
+       WHERE p.deleted_at IS NULL AND p.active = 1 AND p.product_type = 'merchandising' AND p.stock <= p.low_stock_threshold
+       ORDER BY p.stock ASC, p.name ASC
+       LIMIT 25`,
+    );
+
+    const topProduct = merchByProduct[0] || null;
+    const salesCount = Number(summary.sales_count || 0);
+    const total = Number(summary.total || 0);
 
     res.render("reports/merchandising", {
       title: "Relatório Merchandising",
-      filters: req.query,
+      filters,
+      queryString,
       categories,
-      selectedCategoryId,
-      merchByMember,
-      merchByProduct,
+      paymentMethodOptions,
+      userOptions,
+      exportLink: (type) => merchExportLink(type, queryString),
+      summary: {
+        ...summary,
+        average_sale: salesCount > 0 ? total / salesCount : 0,
+        top_product: topProduct ? topProduct.product_name : "",
+      },
+      merchByMember: decorateReportRows(merchByMember, "total"),
+      merchByProduct: decorateReportRows(merchByProduct, "total"),
       merchByMemberProduct,
-      merchTotal: merchTotal[0] || { sales_count: 0, total: 0 },
+      salesByDay: decorateReportRows(salesByDay, "total"),
+      salesByCategory: decorateReportRows(salesByCategory, "total"),
+      paymentTotals: decorateReportRows(paymentTotals, "total"),
+      recentSales,
+      lowStock,
     });
+  }),
+);
+
+app.get(
+  "/reports/merchandising/export/:type",
+  requireAuth,
+  asyncRoute(async (req, res) => {
+    const filters = normalizeMerchReportFilters(req.query);
+    const reportFilters = merchReportFilters(filters);
+    const type = String(req.params.type || "");
+    const exports = {
+      products: {
+        filename: "merchandising-produtos.csv",
+        columns: [
+          { key: "product_name", label: "Produto" },
+          { key: "category_name", label: "Categoria" },
+          { key: "sales_count", label: "Vendas" },
+          { key: "quantity", label: "Quantidade" },
+          { key: "total", label: "Total" },
+        ],
+        sql: `SELECT si.product_name, c.name AS category_name,
+                     COUNT(DISTINCT s.id) AS sales_count,
+                     COALESCE(SUM(si.quantity), 0) AS quantity,
+                     COALESCE(SUM(si.line_total), 0) AS total
+              FROM sale_items si
+              INNER JOIN sales s ON s.id = si.sale_id
+              INNER JOIN products p ON p.id = si.product_id
+              INNER JOIN categories c ON c.id = p.category_id
+              ${reportFilters.where}
+              GROUP BY p.id, si.product_name, c.name
+              ORDER BY total DESC`,
+      },
+      members: {
+        filename: "merchandising-socios.csv",
+        columns: [
+          { key: "member_number", label: "Numero" },
+          { key: "member_name", label: "Socio" },
+          { key: "sales_count", label: "Vendas" },
+          { key: "quantity", label: "Quantidade" },
+          { key: "total", label: "Total" },
+        ],
+        sql: `SELECT s.member_number, s.member_name,
+                     COUNT(DISTINCT s.id) AS sales_count,
+                     COALESCE(SUM(si.quantity), 0) AS quantity,
+                     COALESCE(SUM(si.line_total), 0) AS total
+              FROM sale_items si
+              INNER JOIN sales s ON s.id = si.sale_id
+              INNER JOIN products p ON p.id = si.product_id
+              ${reportFilters.where}
+              GROUP BY s.member_number, s.member_name
+              ORDER BY total DESC`,
+      },
+      matrix: {
+        filename: "merchandising-quem-comprou-o-que.csv",
+        columns: [
+          { key: "member_number", label: "Numero" },
+          { key: "member_name", label: "Socio" },
+          { key: "product_name", label: "Produto" },
+          { key: "sales_count", label: "Vendas" },
+          { key: "quantity", label: "Quantidade" },
+          { key: "total", label: "Total" },
+        ],
+        sql: `SELECT s.member_number, s.member_name, si.product_name,
+                     COUNT(DISTINCT s.id) AS sales_count,
+                     COALESCE(SUM(si.quantity), 0) AS quantity,
+                     COALESCE(SUM(si.line_total), 0) AS total
+              FROM sale_items si
+              INNER JOIN sales s ON s.id = si.sale_id
+              INNER JOIN products p ON p.id = si.product_id
+              ${reportFilters.where}
+              GROUP BY s.member_number, s.member_name, si.product_name
+              ORDER BY total DESC, quantity DESC`,
+      },
+      daily: {
+        filename: "merchandising-diario.csv",
+        columns: [
+          { key: "day", label: "Dia" },
+          { key: "sales_count", label: "Vendas" },
+          { key: "quantity", label: "Quantidade" },
+          { key: "total", label: "Total" },
+        ],
+        sql: `SELECT DATE_FORMAT(s.created_at, '%Y-%m-%d') AS day,
+                     COUNT(DISTINCT s.id) AS sales_count,
+                     COALESCE(SUM(si.quantity), 0) AS quantity,
+                     COALESCE(SUM(si.line_total), 0) AS total
+              FROM sale_items si
+              INNER JOIN sales s ON s.id = si.sale_id
+              INNER JOIN products p ON p.id = si.product_id
+              ${reportFilters.where}
+              GROUP BY DATE_FORMAT(s.created_at, '%Y-%m-%d')
+              ORDER BY day DESC`,
+      },
+      recent: {
+        filename: "merchandising-vendas-recentes.csv",
+        columns: [
+          { key: "receipt_number", label: "Recibo" },
+          { key: "created_at", label: "Data" },
+          { key: "member_number", label: "Numero" },
+          { key: "member_name", label: "Socio" },
+          { key: "quantity", label: "Quantidade" },
+          { key: "total", label: "Total" },
+          { key: "payment_method_name", label: "Pagamento" },
+          { key: "user_name", label: "Utilizador" },
+        ],
+        sql: `SELECT s.receipt_number, s.created_at, s.member_number, s.member_name,
+                     COALESCE(SUM(si.quantity), 0) AS quantity,
+                     COALESCE(SUM(si.line_total), 0) AS total,
+                     pm.name AS payment_method_name,
+                     u.name AS user_name
+              FROM sale_items si
+              INNER JOIN sales s ON s.id = si.sale_id
+              INNER JOIN products p ON p.id = si.product_id
+              INNER JOIN payment_methods pm ON pm.id = s.payment_method_id
+              INNER JOIN users u ON u.id = s.user_id
+              ${reportFilters.where}
+              GROUP BY s.id, s.receipt_number, s.created_at, s.member_number, s.member_name, pm.name, u.name
+              ORDER BY s.created_at DESC`,
+      },
+      categories: {
+        filename: "merchandising-categorias.csv",
+        columns: [
+          { key: "name", label: "Categoria" },
+          { key: "sales_count", label: "Vendas" },
+          { key: "quantity", label: "Quantidade" },
+          { key: "total", label: "Total" },
+        ],
+        sql: `SELECT c.name, COUNT(DISTINCT s.id) AS sales_count,
+                     COALESCE(SUM(si.quantity), 0) AS quantity,
+                     COALESCE(SUM(si.line_total), 0) AS total
+              FROM sale_items si
+              INNER JOIN sales s ON s.id = si.sale_id
+              INNER JOIN products p ON p.id = si.product_id
+              INNER JOIN categories c ON c.id = p.category_id
+              ${reportFilters.where}
+              GROUP BY c.id, c.name
+              ORDER BY total DESC`,
+      },
+      payments: {
+        filename: "merchandising-pagamentos.csv",
+        columns: [
+          { key: "name", label: "Metodo" },
+          { key: "sales_count", label: "Vendas" },
+          { key: "total", label: "Total" },
+        ],
+        sql: `SELECT pm.name, COUNT(DISTINCT s.id) AS sales_count, COALESCE(SUM(si.line_total), 0) AS total
+              FROM sale_items si
+              INNER JOIN sales s ON s.id = si.sale_id
+              INNER JOIN payment_methods pm ON pm.id = s.payment_method_id
+              INNER JOIN products p ON p.id = si.product_id
+              ${reportFilters.where}
+              GROUP BY pm.id, pm.name
+              ORDER BY total DESC`,
+      },
+    };
+
+    const definition = exports[type];
+    if (!definition) {
+      return res.redirect("/reports/merchandising");
+    }
+
+    const [rows] = await pool.execute(definition.sql, reportFilters.params);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${definition.filename}"`);
+    return res.send(rowsToCsv(definition.columns, rows));
   }),
 );
 

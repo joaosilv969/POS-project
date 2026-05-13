@@ -2,104 +2,245 @@
   <div>
     <p class="eyebrow">Análise</p>
     <h1>Relatório Merchandising</h1>
+    <p class="text-muted">Vendas, compradores, produtos e stock de merchandising.</p>
   </div>
-  <a class="button secondary" href="/reports">Voltar</a>
+  <div class="button-row">
+    <a class="button secondary" href="/reports">Analytics</a>
+    <a class="button secondary" href="/merchandising/sale">Venda</a>
+  </div>
 </section>
 
-<form class="filter-bar" method="get" action="/reports/merchandising">
-  <label>
-    Inicio
-    <input type="date" name="start_date" value="<%= filters.start_date || '' %>" />
-  </label>
-  <label>
-    Fim
-    <input type="date" name="end_date" value="<%= filters.end_date || '' %>" />
-  </label>
-  <label>
-    Categoria
-    <select name="category_id">
-      <option value="">Todas</option>
-      <% categories.forEach((category) => { %>
-        <option value="<%= category.id %>" <%= selectedCategoryId === category.id ? "selected" : "" %>><%= category.name %></option>
-      <% }) %>
-    </select>
-  </label>
-  <button class="button secondary" type="submit">Filtrar</button>
-  <a class="button ghost" href="/reports/merchandising">Limpar</a>
+<form class="panel report-filter-panel" method="get" action="/reports/merchandising">
+  <div class="report-filter-grid">
+    <label>
+      Início
+      <input type="date" name="start_date" value="<%= filters.startDate %>" />
+    </label>
+    <label>
+      Fim
+      <input type="date" name="end_date" value="<%= filters.endDate %>" />
+    </label>
+    <label>
+      Categoria
+      <select name="category_id">
+        <option value="">Todas</option>
+        <% categories.forEach((category) => { %>
+          <option value="<%= category.id %>" <%= filters.categoryId === category.id ? "selected" : "" %>><%= category.name %></option>
+        <% }) %>
+      </select>
+    </label>
+    <label>
+      Pagamento
+      <select name="payment_method_id">
+        <option value="">Todos</option>
+        <% paymentMethodOptions.forEach((method) => { %>
+          <option value="<%= method.id %>" <%= filters.paymentMethodId === method.id ? "selected" : "" %>><%= method.name %></option>
+        <% }) %>
+      </select>
+    </label>
+    <label>
+      Funcionário
+      <select name="user_id">
+        <option value="">Todos</option>
+        <% userOptions.forEach((user) => { %>
+          <option value="<%= user.id %>" <%= filters.userId === user.id ? "selected" : "" %>><%= user.name %></option>
+        <% }) %>
+      </select>
+    </label>
+    <label>
+      Sócio
+      <input type="search" name="member_q" value="<%= filters.memberSearch %>" placeholder="Nº ou nome" />
+    </label>
+    <label>
+      Produto
+      <input type="search" name="product_q" value="<%= filters.productSearch %>" placeholder="Nome ou referência" />
+    </label>
+  </div>
+  <div class="form-actions">
+    <button class="button secondary" type="submit">Filtrar</button>
+    <a class="button ghost" href="/reports/merchandising">Limpar</a>
+  </div>
 </form>
 
-<section class="report-grid">
+<section class="analytics-kpis">
+  <article class="stat-card">
+    <span>Faturação</span>
+    <strong><%= money(summary.total || 0) %></strong>
+  </article>
+  <article class="stat-card">
+    <span>Vendas</span>
+    <strong><%= summary.sales_count || 0 %></strong>
+  </article>
+  <article class="stat-card">
+    <span>Artigos</span>
+    <strong><%= summary.items_sold || 0 %></strong>
+  </article>
+  <article class="stat-card">
+    <span>Venda média</span>
+    <strong><%= money(summary.average_sale || 0) %></strong>
+  </article>
+  <article class="stat-card">
+    <span>Compradores</span>
+    <strong><%= summary.buyers_count || 0 %></strong>
+  </article>
+  <article class="stat-card">
+    <span>Top produto</span>
+    <strong><%= summary.top_product || '---' %></strong>
+  </article>
+</section>
+
+<section class="analytics-grid">
+  <article class="panel analytics-wide">
+    <div class="panel-header">
+      <h2>Evolução diária</h2>
+      <a class="button ghost" href="<%= exportLink('daily') %>">CSV</a>
+    </div>
+    <div class="trend-chart">
+      <% salesByDay.forEach((row) => { %>
+        <div class="trend-bar" title="<%= row.day %>: <%= money(row.total) %>">
+          <span style="height:<%= Math.max(8, row.percent) %>%"></span>
+          <small><%= row.day.slice(5) %></small>
+        </div>
+      <% }) %>
+      <% if (salesByDay.length === 0) { %><div class="empty-state">Sem dados.</div><% } %>
+    </div>
+  </article>
+
   <article class="panel">
-    <div class="panel-header"><h2>Total</h2></div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Vendas</th><th>Total</th></tr></thead>
-        <tbody>
+    <div class="panel-header">
+      <h2>Produtos</h2>
+      <a class="button ghost" href="<%= exportLink('products') %>">CSV</a>
+    </div>
+    <div class="bar-list">
+      <% merchByProduct.slice(0, 10).forEach((row) => { %>
+        <div class="bar-row">
+          <div><strong><%= row.product_name %></strong><span><%= row.quantity %> un. · <%= row.category_name %></span></div>
+          <div class="bar-track"><span style="width:<%= row.percent %>%"></span></div>
+          <b><%= money(row.total) %></b>
+        </div>
+      <% }) %>
+      <% if (merchByProduct.length === 0) { %><div class="empty-state">Sem dados.</div><% } %>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-header">
+      <h2>Compradores</h2>
+      <a class="button ghost" href="<%= exportLink('members') %>">CSV</a>
+    </div>
+    <div class="bar-list">
+      <% merchByMember.slice(0, 10).forEach((row) => { %>
+        <div class="bar-row">
+          <div><strong><%= (row.member_number || row.member_name) ? `${row.member_number || ''} ${row.member_name || ''}`.trim() : '---' %></strong><span><%= row.quantity %> un. · <%= row.sales_count %> vendas</span></div>
+          <div class="bar-track"><span style="width:<%= row.percent %>%"></span></div>
+          <b><%= money(row.total) %></b>
+        </div>
+      <% }) %>
+      <% if (merchByMember.length === 0) { %><div class="empty-state">Sem dados.</div><% } %>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-header">
+      <h2>Categorias</h2>
+      <a class="button ghost" href="<%= exportLink('categories') %>">CSV</a>
+    </div>
+    <div class="bar-list">
+      <% salesByCategory.forEach((row) => { %>
+        <div class="bar-row">
+          <div><strong><%= row.name %></strong><span><%= row.quantity %> un. · <%= row.sales_count %> vendas</span></div>
+          <div class="bar-track"><span style="width:<%= row.percent %>%"></span></div>
+          <b><%= money(row.total) %></b>
+        </div>
+      <% }) %>
+      <% if (salesByCategory.length === 0) { %><div class="empty-state">Sem dados.</div><% } %>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-header">
+      <h2>Pagamentos</h2>
+      <a class="button ghost" href="<%= exportLink('payments') %>">CSV</a>
+    </div>
+    <div class="bar-list">
+      <% paymentTotals.forEach((row) => { %>
+        <div class="bar-row">
+          <div><strong><%= row.name %></strong><span><%= row.sales_count %> vendas</span></div>
+          <div class="bar-track"><span style="width:<%= row.percent %>%"></span></div>
+          <b><%= money(row.total) %></b>
+        </div>
+      <% }) %>
+      <% if (paymentTotals.length === 0) { %><div class="empty-state">Sem dados.</div><% } %>
+    </div>
+  </article>
+</section>
+
+<section class="panel">
+  <div class="panel-header">
+    <h2>Quem comprou o quê</h2>
+    <a class="button ghost" href="<%= exportLink('matrix') %>">Exportar CSV</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Sócio</th><th>Produto</th><th>Vendas</th><th>Qtd.</th><th>Total</th></tr></thead>
+      <tbody>
+        <% merchByMemberProduct.forEach((row) => { %>
           <tr>
-            <td><%= merchTotal.sales_count || 0 %></td>
-            <td><%= money(merchTotal.total || 0) %></td>
+            <td><%= (row.member_number || row.member_name) ? `${row.member_number || ''} ${row.member_name || ''}`.trim() : '---' %></td>
+            <td><%= row.product_name %></td>
+            <td><%= row.sales_count %></td>
+            <td><%= row.quantity %></td>
+            <td><%= money(row.total) %></td>
           </tr>
-        </tbody>
-      </table>
-    </div>
-  </article>
+        <% }) %>
+        <% if (merchByMemberProduct.length === 0) { %><tr><td colspan="5">Sem dados.</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</section>
 
-  <article class="panel">
-    <div class="panel-header"><h2>Quem comprou o quê</h2></div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Sócio</th><th>Produto</th><th>Vendas</th><th>Qtd.</th><th>Total</th></tr></thead>
-        <tbody>
-          <% merchByMemberProduct.forEach((row) => { %>
-            <tr>
-              <td><%= (row.member_number || row.member_name) ? `${row.member_number || ''} ${row.member_name || ''}`.trim() : '---' %></td>
-              <td><%= row.product_name %></td>
-              <td><%= row.sales_count %></td>
-              <td><%= row.quantity %></td>
-              <td><%= money(row.total) %></td>
-            </tr>
-          <% }) %>
-          <% if (merchByMemberProduct.length === 0) { %><tr><td colspan="5">Sem dados.</td></tr><% } %>
-        </tbody>
-      </table>
-    </div>
-  </article>
+<section class="panel">
+  <div class="panel-header">
+    <h2>Vendas recentes</h2>
+    <a class="button ghost" href="<%= exportLink('recent') %>">Exportar CSV</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Recibo</th><th>Data</th><th>Sócio</th><th>Qtd.</th><th>Total</th><th>Pagamento</th><th>Utilizador</th></tr></thead>
+      <tbody>
+        <% recentSales.forEach((sale) => { %>
+          <tr>
+            <td><a href="/sales/<%= sale.id %>"><%= sale.receipt_number %></a></td>
+            <td><%= formatDateTime(sale.created_at) %></td>
+            <td><%= (sale.member_number || sale.member_name) ? `${sale.member_number || ''} ${sale.member_name || ''}`.trim() : '---' %></td>
+            <td><%= sale.quantity %></td>
+            <td><%= money(sale.total) %></td>
+            <td><%= sale.payment_method_name %></td>
+            <td><%= sale.user_name %></td>
+          </tr>
+        <% }) %>
+        <% if (recentSales.length === 0) { %><tr><td colspan="7">Sem dados.</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</section>
 
-  <article class="panel">
-    <div class="panel-header"><h2>Por sócio</h2></div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Sócio</th><th>Vendas</th><th>Total</th></tr></thead>
-        <tbody>
-          <% merchByMember.forEach((row) => { %>
-            <tr>
-              <td><%= (row.member_number || row.member_name) ? `${row.member_number || ''} ${row.member_name || ''}`.trim() : '---' %></td>
-              <td><%= row.sales_count %></td>
-              <td><%= money(row.total) %></td>
-            </tr>
-          <% }) %>
-          <% if (merchByMember.length === 0) { %><tr><td colspan="3">Sem dados.</td></tr><% } %>
-        </tbody>
-      </table>
-    </div>
-  </article>
-
-  <article class="panel">
-    <div class="panel-header"><h2>Por produto</h2></div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Produto</th><th>Qtd.</th><th>Total</th></tr></thead>
-        <tbody>
-          <% merchByProduct.forEach((row) => { %>
-            <tr>
-              <td><%= row.product_name %></td>
-              <td><%= row.quantity %></td>
-              <td><%= money(row.total) %></td>
-            </tr>
-          <% }) %>
-          <% if (merchByProduct.length === 0) { %><tr><td colspan="3">Sem dados.</td></tr><% } %>
-        </tbody>
-      </table>
-    </div>
-  </article>
+<section class="panel">
+  <div class="panel-header"><h2>Stock baixo merchandising</h2></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Produto</th><th>Categoria</th><th>Stock</th><th>Alerta</th></tr></thead>
+      <tbody>
+        <% lowStock.forEach((product) => { %>
+          <tr>
+            <td><%= product.name %></td>
+            <td><%= product.category_name %></td>
+            <td><span class="pill danger"><%= product.stock %></span></td>
+            <td><%= product.low_stock_threshold %></td>
+          </tr>
+        <% }) %>
+        <% if (lowStock.length === 0) { %><tr><td colspan="4">Sem produtos com stock baixo.</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
 </section>
