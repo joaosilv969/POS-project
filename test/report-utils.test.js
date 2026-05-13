@@ -5,9 +5,11 @@ const {
   csvEscape,
   makePercent,
   normalizeDuesReportFilters,
+  normalizeMerchReportFilters,
   normalizeReportFilters,
   normalizeStockReportFilters,
   preserveDuesReportQuery,
+  preserveMerchReportQuery,
   preserveReportQuery,
   preserveStockReportQuery,
   rowsToCsv,
@@ -173,4 +175,61 @@ test("preserveStockReportQuery serializes active stock filters only", () => {
   });
 
   assert.equal(query, "area=merchandising&category_id=8&status=out&movement_type=waste&start_date=2026-01-01&q=shirt");
+});
+
+test("normalizeMerchReportFilters keeps valid merchandising filters", () => {
+  const filters = normalizeMerchReportFilters({
+    start_date: "2026-02-01",
+    end_date: "bad",
+    category_id: "4",
+    payment_method_id: "2",
+    user_id: "9",
+    member_q: "  ana  ",
+    product_q: " shirt ",
+  });
+
+  assert.deepEqual(filters, {
+    startDate: "2026-02-01",
+    endDate: "",
+    categoryId: 4,
+    paymentMethodId: 2,
+    userId: 9,
+    memberSearch: "ana",
+    productSearch: "shirt",
+  });
+});
+
+test("normalizeMerchReportFilters falls back on invalid merchandising filters", () => {
+  const filters = normalizeMerchReportFilters({
+    start_date: "bad",
+    category_id: "x",
+    payment_method_id: "0",
+    user_id: "-1",
+    member_q: "   ",
+    product_q: "   ",
+  });
+
+  assert.deepEqual(filters, {
+    startDate: "",
+    endDate: "",
+    categoryId: 0,
+    paymentMethodId: 0,
+    userId: 0,
+    memberSearch: "",
+    productSearch: "",
+  });
+});
+
+test("preserveMerchReportQuery serializes active merchandising filters only", () => {
+  const query = preserveMerchReportQuery({
+    startDate: "2026-02-01",
+    endDate: "2026-02-28",
+    categoryId: 4,
+    paymentMethodId: 2,
+    userId: 9,
+    memberSearch: "ana",
+    productSearch: "shirt",
+  });
+
+  assert.equal(query, "start_date=2026-02-01&end_date=2026-02-28&category_id=4&payment_method_id=2&user_id=9&member_q=ana&product_q=shirt");
 });

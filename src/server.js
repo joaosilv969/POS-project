@@ -19,9 +19,11 @@ const { createPaymentMethodService } = require("./services/payment-methods");
 const {
   makePercent,
   normalizeDuesReportFilters,
+  normalizeMerchReportFilters,
   normalizeReportFilters,
   normalizeStockReportFilters,
   preserveDuesReportQuery,
+  preserveMerchReportQuery,
   preserveReportQuery,
   preserveStockReportQuery,
   rowsToCsv,
@@ -466,6 +468,55 @@ function stockMovementFilters(filters) {
 
 function stockExportLink(type, queryString) {
   return `/stock/export/${type}${queryString ? `?${queryString}` : ""}`;
+}
+
+function merchReportFilters(filters) {
+  const clauses = ["s.status = 'completed'", "p.product_type = 'merchandising'"];
+  const params = [];
+
+  if (filters.startDate) {
+    clauses.push("s.created_at >= ?");
+    params.push(filters.startDate);
+  }
+
+  if (filters.endDate) {
+    clauses.push("s.created_at < DATE_ADD(?, INTERVAL 1 DAY)");
+    params.push(filters.endDate);
+  }
+
+  if (filters.categoryId) {
+    clauses.push("p.category_id = ?");
+    params.push(filters.categoryId);
+  }
+
+  if (filters.paymentMethodId) {
+    clauses.push("s.payment_method_id = ?");
+    params.push(filters.paymentMethodId);
+  }
+
+  if (filters.userId) {
+    clauses.push("s.user_id = ?");
+    params.push(filters.userId);
+  }
+
+  if (filters.memberSearch) {
+    clauses.push("(s.member_number LIKE ? OR s.member_name LIKE ?)");
+    params.push(`%${filters.memberSearch}%`, `%${filters.memberSearch}%`);
+  }
+
+  if (filters.productSearch) {
+    clauses.push("(p.name LIKE ? OR si.product_name LIKE ? OR p.reference_code LIKE ?)");
+    params.push(`%${filters.productSearch}%`, `%${filters.productSearch}%`, `%${filters.productSearch}%`);
+  }
+
+  return {
+    where: `WHERE ${clauses.join(" AND ")}`,
+    params,
+  };
+}
+
+function merchExportLink(type, queryString) {
+  return `/reports/merchandising/export/${type}${queryString ? `?${queryString}` : ""}`;
 }
 
 app.get("/", requireAuth, (req, res) => {

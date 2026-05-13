@@ -153,6 +153,52 @@ function preserveStockReportQuery(filters) {
   return params.toString();
 }
 
+function normalizeMerchReportFilters(query = {}) {
+  return {
+    startDate: isDate(query.start_date) ? query.start_date : "",
+    endDate: isDate(query.end_date) ? query.end_date : "",
+    categoryId: positiveInteger(query.category_id),
+    paymentMethodId: positiveInteger(query.payment_method_id),
+    userId: positiveInteger(query.user_id),
+    memberSearch: String(query.member_q || "").trim().slice(0, 120),
+    productSearch: String(query.product_q || "").trim().slice(0, 120),
+  };
+}
+
+function preserveMerchReportQuery(filters) {
+  const params = new URLSearchParams();
+
+  if (filters.startDate) {
+    params.set("start_date", filters.startDate);
+  }
+
+  if (filters.endDate) {
+    params.set("end_date", filters.endDate);
+  }
+
+  if (filters.categoryId) {
+    params.set("category_id", String(filters.categoryId));
+  }
+
+  if (filters.paymentMethodId) {
+    params.set("payment_method_id", String(filters.paymentMethodId));
+  }
+
+  if (filters.userId) {
+    params.set("user_id", String(filters.userId));
+  }
+
+  if (filters.memberSearch) {
+    params.set("member_q", filters.memberSearch);
+  }
+
+  if (filters.productSearch) {
+    params.set("product_q", filters.productSearch);
+  }
+
+  return params.toString();
+}
+
 function makePercent(value, max) {
   const number = Number(value || 0);
   const maximum = Number(max || 0);
@@ -190,9 +236,11 @@ module.exports = {
   csvEscape,
   makePercent,
   normalizeDuesReportFilters,
+  normalizeMerchReportFilters,
   normalizeReportFilters,
   normalizeStockReportFilters,
   preserveDuesReportQuery,
+  preserveMerchReportQuery,
   preserveReportQuery,
   preserveStockReportQuery,
   rowsToCsv,
