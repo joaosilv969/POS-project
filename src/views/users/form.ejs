@@ -34,6 +34,7 @@
     PIN de login <%= user ? "(deixe vazio para manter)" : "(opcional)" %>
     <input type="password" name="login_pin" inputmode="numeric" autocomplete="off" pattern="[0-9]{4,10}" />
   </label>
+  <p class="form-help">Tem de ser unico e conter entre 4 e 10 digitos.</p>
 
   <label class="toggle-field">
     <input type="checkbox" name="active" <%= !user || user.active ? "checked" : "" %> />

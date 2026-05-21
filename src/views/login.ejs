@@ -12,16 +12,11 @@
 
 <form class="form-stack" method="post" action="/login">
   <label>
-    Email ou nome de utilizador
-    <input type="text" name="identifier" autocomplete="username" required />
+    PIN
+    <input type="password" name="pin" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{4,10}" required />
   </label>
 
-  <label>
-    Password ou PIN
-    <input type="password" name="password" autocomplete="current-password" inputmode="numeric" required />
-  </label>
-
-  <p class="form-help">Pode entrar com a password habitual ou com o PIN de login do utilizador.</p>
+  <p class="form-help">Introduza apenas o PIN do utilizador para entrar no sistema.</p>
 
   <label class="toggle-field compact">
     <input type="checkbox" data-vk-toggle />

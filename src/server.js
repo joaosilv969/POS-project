@@ -151,6 +151,47 @@ async function verifyAdminCancelPin(connection, pin) {
   return null;
 }
 
+async function findUserByLoginPin(connection, pin) {
+  const normalizedPin = String(pin || "").trim();
+  if (!/^\d{4,10}$/.test(normalizedPin)) {
+    return null;
+  }
+
+  const [users] = await connection.execute(
+    "SELECT id, name, email, role, active, login_pin_hash FROM users WHERE active = 1 AND login_pin_hash IS NOT NULL ORDER BY id",
+  );
+
+  for (const user of users) {
+    if (user.login_pin_hash && (await bcrypt.compare(normalizedPin, user.login_pin_hash))) {
+      return user;
+    }
+  }
+
+  return null;
+}
+
+async function loginPinExists(connection, pin, excludedUserId = null) {
+  const normalizedPin = String(pin || "").trim();
+  if (!/^\d{4,10}$/.test(normalizedPin)) {
+    return false;
+  }
+
+  const [users] = excludedUserId
+    ? await connection.execute(
+        "SELECT id, login_pin_hash FROM users WHERE login_pin_hash IS NOT NULL AND id <> ? ORDER BY id",
+        [excludedUserId],
+      )
+    : await connection.execute("SELECT id, login_pin_hash FROM users WHERE login_pin_hash IS NOT NULL ORDER BY id");
+
+  for (const user of users) {
+    if (user.login_pin_hash && (await bcrypt.compare(normalizedPin, user.login_pin_hash))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 app.use((req, res, next) => {
   res.locals.currentUser = req.session.user || null;
   res.locals.flash = req.session.flash || null;
@@ -546,20 +587,11 @@ app.get("/login", (req, res) => {
 app.post(
   "/login",
   asyncRoute(async (req, res) => {
-    const identifier = String(req.body.identifier || "").trim();
-    const password = String(req.body.password || "");
-    const normalized = identifier.toLowerCase();
+    const pin = String(req.body.pin || "").trim();
+    const user = await findUserByLoginPin(pool, pin);
 
-    const [users] = await pool.execute(
-      "SELECT * FROM users WHERE active = 1 AND (LOWER(email) = ? OR LOWER(name) = ?)",
-      [normalized, normalized],
-    );
-    const user = users[0];
-    const matchesPassword = user && (await bcrypt.compare(password, user.password_hash));
-    const matchesPin = user && user.login_pin_hash ? await bcrypt.compare(password, user.login_pin_hash) : false;
-
-    if (!user || (!matchesPassword && !matchesPin)) {
-      flash(req, "error", "Email/nome de utilizador, password ou PIN inválidos.");
+    if (!user) {
+      flash(req, "error", "PIN inválido.");
       return res.redirect("/login");
     }
 
@@ -2408,6 +2440,11 @@ app.post(
       return res.redirect("/users/new");
     }
 
+    if (loginPin && (await loginPinExists(pool, loginPin))) {
+      flash(req, "error", "Esse PIN de login já está a ser usado por outro utilizador.");
+      return res.redirect("/users/new");
+    }
+
     const passwordHash = await bcrypt.hash(password, 12);
     const loginPinHash = loginPin ? await bcrypt.hash(loginPin, 12) : null;
     await pool.execute("INSERT INTO users (name, email, password_hash, login_pin_hash, role, active) VALUES (?, ?, ?, ?, ?, ?)", [
@@ -2457,6 +2494,11 @@ app.post(
 
     if (loginPin && !/^\d{4,10}$/.test(loginPin)) {
       flash(req, "error", "O PIN de login deve ter entre 4 e 10 dígitos.");
+      return res.redirect(`/users/${userId}/edit`);
+    }
+
+    if (loginPin && (await loginPinExists(pool, loginPin, userId))) {
+      flash(req, "error", "Esse PIN de login já está a ser usado por outro utilizador.");
       return res.redirect(`/users/${userId}/edit`);
     }
 
