@@ -508,24 +508,23 @@ tbody tr:hover td {
   display: grid;
 }
 
+.sidebar-meta {
+  display: grid;
+  gap: 0.1rem;
+  margin-bottom: 0.55rem;
+}
+
+.sidebar-meta small {
+  color: #cfd3d1;
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
 .main-content {
   width: 100%;
   max-width: 1480px;
   margin: 0 auto;
   padding: 1.6rem;
-}
-
-.app-footer {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.5rem 1rem;
-  margin-top: 1.25rem;
-  padding-top: 0.9rem;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 700;
 }
 
 .page-header,
@@ -1460,23 +1459,9 @@ body[data-theme="dark"] .qty-button {
   background: var(--bg);
 }
 
-.auth-shell {
-  display: grid;
-  gap: 0.9rem;
-  width: min(100%, 430px);
-}
-
 .auth-card {
-  width: 100%;
+  width: min(100%, 430px);
   padding: 1.5rem;
-}
-
-.auth-footer {
-  margin-top: 0;
-  border-top: 0;
-  padding-top: 0;
-  text-align: center;
-  justify-content: center;
 }
 
 .login-brand {
@@ -1564,10 +1549,6 @@ body[data-theme="dark"] .qty-button {
 @media (max-width: 720px) {
   .main-content {
     padding: 1rem;
-  }
-
-  .app-footer {
-    flex-direction: column;
   }
 
   .page-header,

@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const fs = require("fs");
 const path = require("path");
+const { execFileSync } = require("child_process");
 const bcrypt = require("bcryptjs");
 const express = require("express");
 const expressLayouts = require("express-ejs-layouts");
@@ -40,8 +41,43 @@ fs.mkdirSync(uploadDir, { recursive: true });
 
 const brandConfig = createBrandConfigStore(uploadDir);
 const paymentMethods = createPaymentMethodService({ pool });
-const softwareVersion = String(packageInfo.version || "0.0.0");
-const softwareAuthor = String(packageInfo.author || "").trim() || "Bar POS Community";
+const softwareAuthor = String(packageInfo.author || "").trim() || "joaosilv969 AKA Frazao";
+
+function getCommitCount() {
+  try {
+    return (
+      Number.parseInt(
+        execFileSync("git", ["rev-list", "--count", "HEAD"], {
+          cwd: path.join(__dirname, ".."),
+          encoding: "utf-8",
+        }).trim(),
+        10,
+      ) || 0
+    );
+  } catch {
+    return 0;
+  }
+}
+
+function getMigrationCount() {
+  try {
+    return fs
+      .readdirSync(path.join(__dirname, "..", "migrations"))
+      .filter((file) => file.endsWith(".sql")).length;
+  } catch {
+    return 0;
+  }
+}
+
+function buildSoftwareVersion() {
+  const commitCount = getCommitCount();
+  const migrationCount = getMigrationCount();
+  const rawVersion = String(packageInfo.version || "0.0.0");
+  const [, minor = "0", patch = "0"] = rawVersion.split(".");
+  return `v${migrationCount}.${commitCount || minor}.${patch}`;
+}
+
+const softwareVersion = buildSoftwareVersion();
 
 function createMoneyFormatter(locale = "pt-PT") {
   return (value) =>

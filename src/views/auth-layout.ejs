@@ -18,16 +18,10 @@
     data-vk-space-label="<%= t('Espaço') %>"
     data-vk-render-error="<%= t('Erro ao carregar teclado.') %>"
   >
-    <div class="auth-shell">
-      <main class="auth-card">
-        <%- include("partials/flash") %>
-        <%- body %>
-      </main>
-      <footer class="app-footer auth-footer">
-        <span><%= appName %> v<%= softwareVersion %></span>
-        <span>Developed by <%= softwareAuthor %></span>
-      </footer>
-    </div>
+    <main class="auth-card">
+      <%- include("partials/flash") %>
+      <%- body %>
+    </main>
 
     <script src="/assets/js/app.js?v=<%= assetVersion %>"></script>
     <script src="/assets/js/virtual-keyboard.js?v=<%= assetVersion %>"></script>

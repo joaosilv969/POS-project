@@ -100,6 +100,10 @@
         </nav>
 
         <div class="sidebar-user">
+          <div class="sidebar-meta">
+            <small><%= appName %> <%= softwareVersion %></small>
+            <small>Developed by <%= softwareAuthor %></small>
+          </div>
           <div>
             <strong><%= currentUser.name %></strong>
             <small><%= currentUser.role === "admin" ? t("Administrador") : t("Funcionário") %></small>
@@ -131,10 +135,6 @@
       <main class="main-content">
         <%- include("partials/flash") %>
         <%- body %>
-        <footer class="app-footer">
-          <span><%= appName %> v<%= softwareVersion %></span>
-          <span>Developed by <%= softwareAuthor %></span>
-        </footer>
       </main>
     </div>
 
