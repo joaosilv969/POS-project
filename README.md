@@ -165,7 +165,7 @@ As migrações vivem em `migrations/`.
 
 ### Core POS / Stock
 
-- `users`: utilizadores (admin/employee), `password_hash`, `cancel_pin_hash`
+- `users`: utilizadores (admin/employee), `password_hash`, `login_pin_hash`, `cancel_pin_hash`
 - `categories`: categorias (`scope`: `bar` ou `merchandising`)
 - `products`: artigos, com `stock`, `low_stock_threshold`, `available_for_sale`, `deleted_at`
 - `product_images`: imagem primária por produto (1 registo com `is_primary=1`)

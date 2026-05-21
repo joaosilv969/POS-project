@@ -30,6 +30,11 @@
     <input type="password" name="password" <%= user ? "" : "required" %> minlength="6" />
   </label>
 
+  <label>
+    PIN de login <%= user ? "(deixe vazio para manter)" : "(opcional)" %>
+    <input type="password" name="login_pin" inputmode="numeric" autocomplete="off" pattern="[0-9]{4,10}" />
+  </label>
+
   <label class="toggle-field">
     <input type="checkbox" name="active" <%= !user || user.active ? "checked" : "" %> />
     Utilizador ativo

@@ -555,9 +555,11 @@ app.post(
       [normalized, normalized],
     );
     const user = users[0];
+    const matchesPassword = user && (await bcrypt.compare(password, user.password_hash));
+    const matchesPin = user && user.login_pin_hash ? await bcrypt.compare(password, user.login_pin_hash) : false;
 
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-      flash(req, "error", "Email/nome de utilizador ou password inválidos.");
+    if (!user || (!matchesPassword && !matchesPin)) {
+      flash(req, "error", "Email/nome de utilizador, password ou PIN inválidos.");
       return res.redirect("/login");
     }
 
@@ -2392,6 +2394,7 @@ app.post(
     const name = String(req.body.name || "").trim();
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
+    const loginPin = String(req.body.login_pin || "").trim();
     const role = req.body.role === "admin" ? "admin" : "employee";
     const active = req.body.active ? 1 : 0;
 
@@ -2400,11 +2403,18 @@ app.post(
       return res.redirect("/users/new");
     }
 
+    if (loginPin && !/^\d{4,10}$/.test(loginPin)) {
+      flash(req, "error", "O PIN de login deve ter entre 4 e 10 dígitos.");
+      return res.redirect("/users/new");
+    }
+
     const passwordHash = await bcrypt.hash(password, 12);
-    await pool.execute("INSERT INTO users (name, email, password_hash, role, active) VALUES (?, ?, ?, ?, ?)", [
+    const loginPinHash = loginPin ? await bcrypt.hash(loginPin, 12) : null;
+    await pool.execute("INSERT INTO users (name, email, password_hash, login_pin_hash, role, active) VALUES (?, ?, ?, ?, ?, ?)", [
       name,
       email,
       passwordHash,
+      loginPinHash,
       role,
       active,
     ]);
@@ -2436,6 +2446,7 @@ app.post(
     const name = String(req.body.name || "").trim();
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
+    const loginPin = String(req.body.login_pin || "").trim();
     const role = req.body.role === "admin" ? "admin" : "employee";
     const active = req.body.active ? 1 : 0;
 
@@ -2444,6 +2455,13 @@ app.post(
       return res.redirect(`/users/${userId}/edit`);
     }
 
+    if (loginPin && !/^\d{4,10}$/.test(loginPin)) {
+      flash(req, "error", "O PIN de login deve ter entre 4 e 10 dígitos.");
+      return res.redirect(`/users/${userId}/edit`);
+    }
+
+    const loginPinHash = loginPin ? await bcrypt.hash(loginPin, 12) : null;
+
     if (password) {
       if (password.length < 6) {
         flash(req, "error", "A password deve ter pelo menos 6 caracteres.");
@@ -2451,22 +2469,40 @@ app.post(
       }
 
       const passwordHash = await bcrypt.hash(password, 12);
-      await pool.execute("UPDATE users SET name = ?, email = ?, password_hash = ?, role = ?, active = ? WHERE id = ?", [
-        name,
-        email,
-        passwordHash,
-        role,
-        active,
-        userId,
-      ]);
+      if (loginPinHash) {
+        await pool.execute(
+          "UPDATE users SET name = ?, email = ?, password_hash = ?, login_pin_hash = ?, role = ?, active = ? WHERE id = ?",
+          [name, email, passwordHash, loginPinHash, role, active, userId],
+        );
+      } else {
+        await pool.execute("UPDATE users SET name = ?, email = ?, password_hash = ?, role = ?, active = ? WHERE id = ?", [
+          name,
+          email,
+          passwordHash,
+          role,
+          active,
+          userId,
+        ]);
+      }
     } else {
-      await pool.execute("UPDATE users SET name = ?, email = ?, role = ?, active = ? WHERE id = ?", [
-        name,
-        email,
-        role,
-        active,
-        userId,
-      ]);
+      if (loginPinHash) {
+        await pool.execute("UPDATE users SET name = ?, email = ?, login_pin_hash = ?, role = ?, active = ? WHERE id = ?", [
+          name,
+          email,
+          loginPinHash,
+          role,
+          active,
+          userId,
+        ]);
+      } else {
+        await pool.execute("UPDATE users SET name = ?, email = ?, role = ?, active = ? WHERE id = ?", [
+          name,
+          email,
+          role,
+          active,
+          userId,
+        ]);
+      }
     }
 
     if (req.session.user.id === userId) {
