@@ -95,6 +95,17 @@
     finishButton.disabled = received < total() || received === 0;
   }
 
+  function focusFinishButtonWhenReady() {
+    if (!isCashModeActive() || !cashReceived) {
+      return;
+    }
+
+    const received = parseCurrency(cashReceived.value);
+    if (total() > 0 && received >= total() && !finishButton.disabled) {
+      finishButton.focus();
+    }
+  }
+
   function addToCashInput(value) {
     const current = cashReceived.value;
     if (value === 'clear') {
@@ -257,6 +268,7 @@
 
     showError("");
     renderCart();
+    focusFinishButtonWhenReady();
   }
 
   function changeQuantity(id, delta) {
@@ -275,11 +287,13 @@
     }
 
     renderCart();
+    focusFinishButtonWhenReady();
   }
 
   function removeItem(id) {
     cart.delete(id);
     renderCart();
+    focusFinishButtonWhenReady();
   }
 
   root.querySelectorAll("[data-product-id]").forEach((tile) => {

@@ -8,6 +8,7 @@ const expressLayouts = require("express-ejs-layouts");
 const session = require("express-session");
 const createMySQLSessionStore = require("express-mysql-session");
 const helmet = require("helmet");
+const packageInfo = require("../package.json");
 const pool = require("./db");
 const { createBrandConfigStore } = require("./config/brand-config");
 const asyncRoute = require("./lib/async-route");
@@ -39,6 +40,8 @@ fs.mkdirSync(uploadDir, { recursive: true });
 
 const brandConfig = createBrandConfigStore(uploadDir);
 const paymentMethods = createPaymentMethodService({ pool });
+const softwareVersion = String(packageInfo.version || "0.0.0");
+const softwareAuthor = String(packageInfo.author || "").trim() || "Bar POS Community";
 
 function createMoneyFormatter(locale = "pt-PT") {
   return (value) =>
@@ -283,6 +286,8 @@ app.use((req, res, next) => {
   res.locals.brandMarkUrl = currentBrandMarkImage ? `/brand-mark?v=${encodeURIComponent(currentBrandMarkImage)}` : null;
   res.locals.appName = brandConfig.appName();
   res.locals.appSubtitle = brandConfig.appSubtitle();
+  res.locals.softwareVersion = softwareVersion;
+  res.locals.softwareAuthor = softwareAuthor;
   res.locals.duesDefaultAmount = duesDefaultAmount();
   res.locals.defaultLowStockThreshold = brandConfig.defaultLowStockThreshold();
   res.locals.receiptPrefixBar = brandConfig.receiptPrefixBar();

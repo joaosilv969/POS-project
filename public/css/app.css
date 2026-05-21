@@ -1,44 +1,44 @@
 :root {
-  --bg: #f5f6f1;
+  --bg: #f3f3f4;
   --surface: #ffffff;
-  --surface-strong: #eef4ee;
+  --surface-strong: #ececee;
   --field-bg: #ffffff;
-  --text: #17211b;
-  --muted: #667068;
-  --line: #dce3dc;
-  --primary: #0f6b4f;
-  --primary-strong: #0a543f;
-  --accent: #c58a13;
-  --danger: #b83a30;
+  --text: #111111;
+  --muted: #5e5e63;
+  --line: #d3d3d8;
+  --primary: #b5121b;
+  --primary-strong: #8f0d15;
+  --accent: #d6aa1d;
+  --danger: #b5121b;
   --radius: 8px;
-  --shadow: 0 16px 40px rgba(23, 33, 27, 0.08);
-  --focus-ring: rgba(15, 107, 79, 0.25);
-  --shadow-soft: 0 10px 28px rgba(23, 33, 27, 0.08);
+  --shadow: 0 16px 40px rgba(17, 17, 17, 0.1);
+  --focus-ring: rgba(181, 18, 27, 0.24);
+  --shadow-soft: 0 10px 28px rgba(17, 17, 17, 0.08);
 }
 
 body[data-theme="dark"] {
-  --bg: #0f1512;
-  --surface: #17211b;
-  --surface-strong: #223129;
-  --field-bg: #1b271f;
+  --bg: #0b0b0d;
+  --surface: #16161a;
+  --surface-strong: #232329;
+  --field-bg: #1b1b20;
   --text: #ffffff;
   --muted: #ffffff;
-  --line: #2b3a31;
-  --primary: #2db07d;
-  --primary-strong: #239068;
-  --accent: #d4a53d;
-  --danger: #ef7d73;
-  --focus-ring: rgba(45, 176, 125, 0.3);
-  --shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
-  --shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.26);
+  --line: #303038;
+  --primary: #cf1d28;
+  --primary-strong: #e0343e;
+  --accent: #e0b52a;
+  --danger: #ff5a5f;
+  --focus-ring: rgba(207, 29, 40, 0.3);
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.36);
+  --shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.3);
 }
 
 html {
-  background: #f5f6f1;
+  background: #f3f3f4;
 }
 
 html:has(body[data-theme="dark"]) {
-  background: #0f1512;
+  background: #0b0b0d;
 }
 
 * {
@@ -353,8 +353,8 @@ tbody tr:hover td {
   height: 100vh;
   padding: 1.2rem;
   border-right: 1px solid var(--line);
-  background: linear-gradient(180deg, #15251d 0%, #111c16 100%);
-  color: #eef8f0;
+  background: linear-gradient(180deg, #151519 0%, #09090b 100%);
+  color: #ffffff;
   overflow: hidden;
 }
 
@@ -400,7 +400,7 @@ tbody tr:hover td {
 .brand small,
 .sidebar-user small {
   display: block;
-  color: #dce8df;
+  color: #e0e0e3;
 }
 
 .nav-list {
@@ -414,7 +414,7 @@ tbody tr:hover td {
 .nav-list a {
   position: relative;
   border-radius: var(--radius);
-  color: #dce8df;
+  color: #ececef;
   padding: 0.75rem 0.85rem;
 }
 
@@ -439,7 +439,7 @@ tbody tr:hover td {
   justify-content: space-between;
   list-style: none;
   border-radius: var(--radius);
-  color: #dce8df;
+  color: #ececef;
   padding: 0.75rem 0.85rem;
   cursor: pointer;
   user-select: none;
@@ -490,7 +490,7 @@ tbody tr:hover td {
   gap: 0.25rem;
   padding: 0.1rem 0 0.55rem;
   margin: 0 0.35rem 0.35rem;
-  border-left: 1px solid rgba(255, 255, 255, 0.14);
+  border-left: 1px solid rgba(214, 170, 29, 0.26);
 }
 
 .nav-sublist a {
@@ -513,6 +513,19 @@ tbody tr:hover td {
   max-width: 1480px;
   margin: 0 auto;
   padding: 1.6rem;
+}
+
+.app-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-top: 1.25rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .page-header,
@@ -861,7 +874,7 @@ body[data-theme="dark"] .bar-track {
   height: 100%;
   min-width: 4px;
   border-radius: inherit;
-  background: var(--primary);
+  background: linear-gradient(90deg, var(--primary), var(--accent));
 }
 
 .bar-track.danger span {
@@ -1291,7 +1304,7 @@ body[data-theme="dark"] .table-card.occupied {
 
 .pos-total-small {
   border-radius: var(--radius);
-  background: #15251d;
+  background: linear-gradient(135deg, #151519, #b5121b);
   color: #fff;
   padding: 0.8rem 1rem;
   font-size: 1.35rem;
@@ -1447,9 +1460,23 @@ body[data-theme="dark"] .qty-button {
   background: var(--bg);
 }
 
-.auth-card {
+.auth-shell {
+  display: grid;
+  gap: 0.9rem;
   width: min(100%, 430px);
+}
+
+.auth-card {
+  width: 100%;
   padding: 1.5rem;
+}
+
+.auth-footer {
+  margin-top: 0;
+  border-top: 0;
+  padding-top: 0;
+  text-align: center;
+  justify-content: center;
 }
 
 .login-brand {
@@ -1537,6 +1564,10 @@ body[data-theme="dark"] .qty-button {
 @media (max-width: 720px) {
   .main-content {
     padding: 1rem;
+  }
+
+  .app-footer {
+    flex-direction: column;
   }
 
   .page-header,
@@ -1712,7 +1743,7 @@ body[data-theme="dark"] .qty-button {
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem;
-  background: var(--primary);
+  background: linear-gradient(135deg, var(--primary), var(--accent));
   color: white;
   border-radius: var(--radius);
   margin-top: 1rem;
