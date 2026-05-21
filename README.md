@@ -1,78 +1,78 @@
-# Bar POS Comunidade | Software de Gestão para Associações, Motoclubes, Coletividades e Bares
+# Bar POS Community | Management Software for Associations, Motorcycle Clubs, Community Groups, and Bars
 
-Aplicação web de gestão para associações, motoclubes, coletividades, clubes recreativos e bares comunitários. Este software funciona como POS para bar, sistema de gestão de stock, gestão de sócios, controlo de cotas e administração de merchandising no mesmo projeto.
+Web-based management software for associations, motorcycle clubs, community groups, recreational clubs, and community bars. This project works as a bar POS system, stock management system, member management tool, dues tracking platform, and merchandising admin system in a single application.
 
-Este projeto junta, no mesmo sistema:
-- vendas de bar e merchandising
-- mesas e contas abertas
-- produtos, stock e movimentos
-- sócios e pagamento de cotas
-- utilizadores com perfis de admin e funcionário
-- relatórios operacionais
+This project brings together:
+- bar and merchandising sales
+- tables and open orders
+- products, stock, and stock movements
+- members and dues payments
+- admin and employee user roles
+- operational reports
 
-O objetivo é ser simples de instalar, fácil de usar e acessível para equipas pequenas que precisam de uma ferramenta prática para a rotina da comunidade.
+The goal is to stay simple to install, easy to use, and practical for small teams that need reliable software for the day-to-day work of a community space.
 
-## Software de gestão para comunidade
+## Community Management Software
 
-O Bar POS Comunidade foi pensado para organizações onde a gestão acontece ao balcão, nas mesas, nos eventos, na tesouraria e no contacto diário com sócios e visitantes.
+Bar POS Community was designed for organizations where management happens at the counter, at the tables, during events, in treasury work, and in daily interaction with members and visitors.
 
-É especialmente útil para:
-- motoclubes
-- associações locais
-- coletividades
-- clubes recreativos
-- bares de sede
-- bancas de merchandising em eventos
+It is especially useful for:
+- motorcycle clubs
+- local associations
+- community groups
+- recreational clubs
+- clubhouse bars
+- merchandising stands at events
 
-Se alguém estiver à procura de um programa para associação, software para motoclube, sistema POS para bar, aplicação para gestão de sócios ou plataforma para controlo de cotas, este projeto foi construído exatamente para esse tipo de realidade.
+If someone is looking for association management software, motorcycle club software, a bar POS system, member management software, or a dues tracking platform, this project was built for exactly that kind of real-world use.
 
-## Funcionalidades principais do sistema
+## Main Features
 
-### POS para bar e ponto de venda
-- venda rápida ao balcão
-- escolha de método de pagamento
-- cálculo de troco em pagamentos a dinheiro
-- emissão de recibo
+### Bar POS and Point of Sale
+- fast counter sales
+- payment method selection
+- change calculation for cash payments
+- receipt generation
 
-### Mesas
-- abertura de conta por mesa
-- adicionar e alterar produtos
-- fechar mesa com pagamento
-- cancelar mesa quando necessário
+### Tables
+- open a table order
+- add and update products
+- close a table with payment
+- cancel a table when needed
 
-### Gestão de stock e produtos
-- gestão de produtos de bar e merchandising
-- categorias por área
-- imagens dos produtos
-- controlo de stock baixo
-- histórico de movimentos
+### Stock and Product Management
+- manage bar and merchandising products
+- categories by area
+- product images
+- low-stock alerts
+- stock movement history
 
-### Gestão de sócios e cotas
-- registo de sócios
-- consulta por número e nome
-- pagamento de cotas por ano
-- histórico e cancelamento de pagamentos
+### Member and Dues Management
+- member registration
+- search by member number and name
+- yearly dues payments
+- payment history and cancellation
 
-### Administração e configuração
-- utilizadores e permissões
-- configuração da marca
-- PIN de cancelamento
-- valor base das cotas
-- idioma da aplicação
+### Administration and Settings
+- users and permissions
+- brand configuration
+- cancellation PIN
+- default dues amount
+- application language
 
-## Palavras-chave relevantes
+## Relevant Search Keywords
 
-Este repositório pode ser útil para quem pesquisa por:
-- software de gestão para associação
-- software para motoclube
-- programa para coletividade
-- POS para bar
-- sistema de gestão de bar
-- gestão de stock para bar
-- gestão de sócios
-- gestão de cotas
-- software de merchandising
-- aplicação para clube recreativo
+This repository may be useful for people searching for:
+- association management software
+- motorcycle club software
+- community group software
+- bar POS system
+- bar management software
+- stock management for bars
+- member management software
+- dues management software
+- merchandising management software
+- recreational club management app
 
 ## Stack
 
@@ -82,58 +82,58 @@ Este repositório pode ser útil para quem pesquisa por:
 - MariaDB
 - Docker Compose
 
-## Como instalar o software
+## How to Install the Software
 
-### 1. Clonar o projeto de gestão
+### 1. Clone the project
 
 ```bash
-git clone <repo> bar-pos-comunidade
-cd bar-pos-comunidade
+git clone <repo> bar-pos-community
+cd bar-pos-community
 ```
 
-### 2. Criar o ficheiro de ambiente
+### 2. Create the environment file
 
 ```bash
 cp .env.example .env
 ```
 
-Se quiser, pode editar as portas e credenciais no `.env` antes de arrancar.
+You can edit `.env` before starting if you want to change ports, credentials, or other runtime settings.
 
-### 3. Iniciar o sistema com Docker
+### 3. Start the system with Docker
 
-Opção recomendada:
+Recommended option:
 
 ```bash
 docker compose -f docker-compose.yaml up -d --build --remove-orphans
 ```
 
-Alternativa:
+Alternative option:
 
 ```bash
 docker compose -f docker-compose.yml up -d --build --remove-orphans
 ```
 
-### 4. Abrir a aplicação no browser
+### 4. Open the application in your browser
 
-- Aplicação: `http://localhost:8080`
+- Application: `http://localhost:8080`
 - phpMyAdmin: `http://localhost:8081`
 
-### 5. Parar os serviços
+### 5. Stop the services
 
 ```bash
 docker compose -f docker-compose.yaml down
 ```
 
-## Login inicial
+## Default Login
 
-Para facilitar testes e primeiros passos:
+For testing and first setup:
 
 - Admin: `admin@bar.local` / `admin123`
-- Funcionário: `funcionario@bar.local` / `funcionario123`
+- Employee: `funcionario@bar.local` / `funcionario123`
 
-## Instalação do Docker no Ubuntu para correr a aplicação
+## Install Docker on Ubuntu
 
-Se ainda não tiver Docker:
+If Docker is not installed yet:
 
 ```bash
 sudo apt update
@@ -147,22 +147,22 @@ sudo apt update
 sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
 
-Verificação:
+Verification:
 
 ```bash
 sudo docker version
 sudo docker compose version
 ```
 
-Opcional, para usar Docker sem `sudo`:
+Optional, to use Docker without `sudo`:
 
 ```bash
 sudo usermod -aG docker $USER
 ```
 
-Depois termine a sessão e volte a entrar.
+Then log out and log back in so the `docker` group is applied.
 
-## Estrutura do projeto
+## Project Structure
 
 ```text
 .
@@ -182,15 +182,15 @@ Depois termine a sessão e volte a entrar.
 └─ package.json
 ```
 
-## Dados, base de dados e configuração
+## Data, Database, and Configuration
 
-O sistema usa:
-- MariaDB para os dados
-- sessões guardadas em base de dados
-- uploads persistidos em volume Docker
-- configuração de marca guardada no servidor
+The system uses:
+- MariaDB for persistent data
+- database-backed sessions
+- Docker volumes for uploads
+- server-side brand configuration
 
-Variáveis principais no `.env`:
+Main variables in `.env`:
 - `APP_PUBLIC_PORT`
 - `SESSION_SECRET`
 - `DB_HOST`
@@ -203,70 +203,70 @@ Variáveis principais no `.env`:
 - `UPLOAD_DIR`
 - `ADMIN_CANCEL_PIN`
 
-## Comandos úteis
+## Useful Commands
 
-Ver logs:
+View logs:
 
 ```bash
 docker compose -f docker-compose.yaml logs -f app
 ```
 
-Parar tudo:
+Stop everything:
 
 ```bash
 docker compose -f docker-compose.yaml down
 ```
 
-Apagar volumes e recomeçar do zero:
+Remove volumes and start fresh:
 
 ```bash
 docker compose -f docker-compose.yaml down -v
 ```
 
-Executar testes:
+Run tests:
 
 ```bash
 npm test
 ```
 
-## Segurança da aplicação
+## Application Security
 
-O projeto já inclui uma base de segurança importante para uso real:
-- passwords com hash
-- sessões seguras com `httpOnly`
-- permissões separadas entre admin e funcionário
-- PIN para cancelamentos
-- proteção base com `helmet`
-- validação de uploads de imagem
+The project already includes a solid baseline for real-world use:
+- hashed passwords
+- secure `httpOnly` sessions
+- separate permissions for admins and employees
+- cancellation PIN protection
+- baseline security headers with `helmet`
+- image upload validation
 
-## Projeto open source para a comunidade
+## Open Source Project for the Community
 
-Este repositório foi desenhado para ser útil no terreno e ao mesmo tempo fácil de manter.
+This repository was designed to be useful in real operations while still being easy to maintain.
 
-Ainda assim, há espaço para a comunidade melhorar:
-- documentação
-- testes
-- traduções
-- acessibilidade
-- relatórios
-- integração com impressoras
-- melhorias de interface para eventos e uso móvel
+There is still plenty of room for the community to improve:
+- documentation
+- tests
+- translations
+- accessibility
+- reports
+- printer integrations
+- UI improvements for events and mobile use
 
-## Como contribuir para o software
+## How to Contribute
 
-Se quiser ajudar, pode contribuir de várias formas:
-- reportar bugs
-- sugerir melhorias
-- melhorar textos e tradução
-- rever fluxos de uso real no bar ou na associação
-- implementar novas funcionalidades
+You can help in several ways:
+- report bugs
+- suggest improvements
+- improve wording and translations
+- review real-life usage flows for bars and associations
+- implement new features
 
-Ao contribuir, tente manter o foco em:
-- simplicidade
-- estabilidade
-- clareza para utilizadores não técnicos
-- boa experiência em dispositivos táteis
+When contributing, try to keep the focus on:
+- simplicity
+- stability
+- clarity for non-technical users
+- a good experience on touch devices
 
-## Resumo do projeto
+## Project Summary
 
-O Bar POS Comunidade não é só um POS. É um software de gestão comunitária para bar, stock, sócios, cotas e merchandising, criado para equipas pequenas que precisam de uma solução prática, simples e colaborativa.
+Bar POS Community is more than just a POS. It is community management software for bar sales, stock, members, dues, and merchandising, built for small teams that need a practical, simple, and collaborative solution.
