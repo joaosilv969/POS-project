@@ -147,3 +147,29 @@
     <button class="button secondary" type="submit">Aplicar idioma</button>
   </form>
 </section>
+
+<section class="panel">
+  <div class="panel-header">
+    <h2>Software</h2>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Dia</th><th>Versão do software</th></tr></thead>
+      <tbody>
+        <% if (softwareVersions && softwareVersions.length > 0) { %>
+          <% softwareVersions.forEach((row) => { %>
+            <tr>
+              <td><%= new Intl.DateTimeFormat(locale, { dateStyle: "short" }).format(new Date(row.released_at)) %></td>
+              <td><%= row.version %></td>
+            </tr>
+          <% }) %>
+        <% } else { %>
+          <tr>
+            <td colspan="2">Sem versões registadas.</td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</section>

@@ -79,6 +79,23 @@ function buildSoftwareVersion() {
 
 const softwareVersion = buildSoftwareVersion();
 
+async function registerSoftwareVersion() {
+  try {
+    await pool.execute("INSERT IGNORE INTO software_versions (version) VALUES (?)", [softwareVersion]);
+  } catch {
+    // Ignore registration failures during boot; settings page will try again.
+  }
+}
+
+async function listSoftwareVersions() {
+  const [rows] = await pool.execute(
+    "SELECT version, released_at FROM software_versions ORDER BY released_at DESC, version DESC",
+  );
+  return rows;
+}
+
+void registerSoftwareVersion();
+
 function createMoneyFormatter(locale = "pt-PT") {
   return (value) =>
     new Intl.NumberFormat(locale, {
@@ -786,7 +803,9 @@ app.get(
   "/settings",
   requireAdmin,
   asyncRoute(async (req, res) => {
+    await registerSoftwareVersion();
     const [duesYears] = await pool.execute("SELECT * FROM dues_years ORDER BY year DESC");
+    const softwareVersions = await listSoftwareVersions();
     res.render("settings", {
       title: "Configuração",
       brandMarkImage: brandConfig.get().brandMarkImage || null,
@@ -796,6 +815,7 @@ app.get(
       receiptPrefixBar: brandConfig.receiptPrefixBar(),
       receiptPrefixMerchandising: brandConfig.receiptPrefixMerchandising(),
       duesDefaultAmount: duesDefaultAmount(),
+      softwareVersions,
       duesYears,
     });
   }),
