@@ -37,6 +37,19 @@
     return;
   }
 
+  function isCashModeActive() {
+    return Boolean(cashReceived) && paymentMethod.value === cashMethodId;
+  }
+
+  function moveToFinishButton(event) {
+    if (event.key !== "Enter" || isCashModeActive()) {
+      return;
+    }
+
+    event.preventDefault();
+    finishButton.focus();
+  }
+
   function clearElement(element) {
     if (!element) {
       return;
@@ -96,6 +109,19 @@
     updateChange();
   }
 
+  function removeLastCashCharacter() {
+    cashReceived.value = cashReceived.value.slice(0, -1);
+    updateChange();
+  }
+
+  function isEditableTarget(target) {
+    return (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      (target instanceof HTMLElement && target.isContentEditable)
+    );
+  }
+
   function total() {
     return [...cart.values()].reduce((sum, item) => sum + item.price * item.quantity, 0);
   }
@@ -136,6 +162,7 @@
   }
 
   paymentMethod.addEventListener("change", updateCashSection);
+  paymentMethod.addEventListener("keydown", moveToFinishButton);
 
   // Check initial state
   updateCashSection();
@@ -143,6 +170,7 @@
   // Cash received input handler
   if (cashReceived) {
     cashReceived.addEventListener("input", updateChange);
+    cashReceived.addEventListener("keydown", moveToFinishButton);
     cashReceived.addEventListener("keydown", (e) => {
       // Allow numbers, comma, backspace, delete, tab, enter
       if (!/[0-9,.]|Backspace|Delete|Tab|Enter/.test(e.key)) {
@@ -279,7 +307,7 @@
     renderCart();
   });
 
-  finishButton.addEventListener("click", async () => {
+  async function finishSale() {
     if (cart.size === 0) {
       showError(messages.missingItems);
       return;
@@ -321,6 +349,62 @@
     } catch (error) {
       showError(error.message);
       finishButton.disabled = false;
+    }
+  }
+
+  finishButton.addEventListener("click", finishSale);
+
+  document.addEventListener("keydown", (event) => {
+    if (!isCashModeActive() || !cashReceived) {
+      return;
+    }
+
+    if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) {
+      return;
+    }
+
+    const target = event.target;
+    if (target === cashReceived) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        if (!finishButton.disabled) {
+          finishSale();
+        }
+      }
+      return;
+    }
+
+    if (isEditableTarget(target)) {
+      return;
+    }
+
+    if (/^[0-9]$/.test(event.key)) {
+      event.preventDefault();
+      cashReceived.focus();
+      addToCashInput(event.key);
+      return;
+    }
+
+    if (event.key === "," || event.key === ".") {
+      event.preventDefault();
+      cashReceived.focus();
+      addToCashInput(",");
+      return;
+    }
+
+    if (event.key === "Backspace" || event.key === "Delete") {
+      event.preventDefault();
+      cashReceived.focus();
+      removeLastCashCharacter();
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      cashReceived.focus();
+      if (!finishButton.disabled) {
+        finishSale();
+      }
     }
   });
 

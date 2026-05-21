@@ -5,11 +5,11 @@
   </div>
   <div class="button-row">
     <button class="button secondary" type="button" data-print>Imprimir</button>
-    <a class="button primary" href="/pos">Nova venda</a>
+    <a class="button primary" href="<%= newSalePath %>" data-new-sale-link>Nova venda</a>
   </div>
 </section>
 
-<article class="receipt">
+<article class="receipt" data-receipt-next-sale="<%= newSalePath %>">
   <header>
     <strong>Bar POS</strong>
     <span><%= formatDateTime(sale.created_at) %></span>

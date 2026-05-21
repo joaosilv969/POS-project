@@ -33,6 +33,36 @@ document.querySelectorAll("[data-print]").forEach((button) => {
   button.addEventListener("click", () => window.print());
 });
 
+const receipt = document.querySelector("[data-receipt-next-sale]");
+if (receipt) {
+  const nextSalePath = receipt.dataset.receiptNextSale;
+
+  if (nextSalePath) {
+    document.addEventListener("keydown", (event) => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+      }
+
+      if (event.key !== "Enter") {
+        return;
+      }
+
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      window.location.href = nextSalePath;
+    });
+  }
+}
+
 // Mobile sidebar toggle
 const burgerButton = document.querySelector(".burger-button");
 const sidebar = document.querySelector(".sidebar");

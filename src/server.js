@@ -133,8 +133,7 @@ app.use(
 );
 
 app.use((req, res, next) => {
-  const locale = normalizeLanguage(req.session.language || req.headers["accept-language"]);
-  req.session.language = locale;
+  const locale = normalizeLanguage(brandConfig.get().language || req.headers["accept-language"]);
   req.language = locale;
   req.t = createTranslator(locale);
 
@@ -695,8 +694,9 @@ app.post("/logout", requireAuth, (req, res) => {
   });
 });
 
-app.post("/language", (req, res) => {
-  req.session.language = normalizeLanguage(req.body.language);
+app.post("/language", requireAdmin, (req, res) => {
+  const locale = normalizeLanguage(req.body.language);
+  brandConfig.update({ language: locale });
   const returnTo = String(req.body.return_to || "").trim();
 
   if (returnTo.startsWith("/")) {
@@ -2263,7 +2263,9 @@ async function renderSale(req, res, saleId) {
   }
 
   const [items] = await pool.execute("SELECT * FROM sale_items WHERE sale_id = ? ORDER BY id", [sale.id]);
-  return res.render("pos/receipt", { title: "Recibo", sale, items });
+  const merchPrefix = brandConfig.receiptPrefixMerchandising();
+  const newSalePath = String(sale.receipt_number || "").startsWith(merchPrefix) ? "/merchandising/sale" : "/pos";
+  return res.render("pos/receipt", { title: "Recibo", sale, items, newSalePath });
 }
 
 app.get(
