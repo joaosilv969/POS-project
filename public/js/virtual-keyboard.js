@@ -1,5 +1,13 @@
 (() => {
   const STORAGE_KEY = "vk_enabled";
+  const body = document.body;
+  const labels = {
+    ariaLabel: (body && body.dataset.vkAriaLabel) || "Teclado no ecrã",
+    title: (body && body.dataset.vkTitle) || "Teclado",
+    close: (body && body.dataset.vkCloseLabel) || "Fechar",
+    space: (body && body.dataset.vkSpaceLabel) || "Espaço",
+    renderError: (body && body.dataset.vkRenderError) || "Erro ao carregar teclado.",
+  };
 
   function isKeyboardEnabled() {
     try {
@@ -240,7 +248,7 @@
     modal.className = "vk-modal";
     modal.setAttribute("role", "dialog");
     modal.setAttribute("aria-modal", "true");
-    modal.setAttribute("aria-label", "Teclado no ecrã");
+    modal.setAttribute("aria-label", labels.ariaLabel);
 
     const handle = document.createElement("div");
     handle.className = "vk-handle";
@@ -249,9 +257,9 @@
     header.className = "vk-header";
 
     const title = document.createElement("strong");
-    title.textContent = "Teclado";
+    title.textContent = labels.title;
 
-    const close = createKey("Fechar", { action: "close", wide: true });
+    const close = createKey(labels.close, { action: "close", wide: true });
     close.classList.add("vk-close");
 
     header.append(title, close);
@@ -296,7 +304,7 @@
       rowActions.append(
         createKey(symbols ? "ABC" : "123", { action: "toggleSymbols", wide: true }),
         createKey(upper ? "abc" : "ABC", { action: "toggleCase", wide: true }),
-        createKey("Espaço", { value: " ", wide: true }),
+        createKey(labels.space, { value: " ", wide: true }),
         createKey("⌫", { action: "backspace", wide: true }),
         createKey("Enter", { action: "enter", wide: true }),
       );
@@ -395,7 +403,7 @@
     try {
       renderKeys();
     } catch (error) {
-      keys.textContent = "Erro ao carregar teclado.";
+      keys.textContent = labels.renderError;
       console.error("Virtual keyboard render failed", error);
     }
 

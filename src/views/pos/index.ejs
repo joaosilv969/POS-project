@@ -5,7 +5,19 @@
   </div>
 </section>
 
-<section class="pos-layout" data-pos data-cash-method-id="<%= cashMethodId || '' %>">
+<section
+  class="pos-layout"
+  data-pos
+  data-locale="<%= locale %>"
+  data-cash-method-id="<%= cashMethodId || '' %>"
+  data-empty-cart-message="<%= t('Adicione produtos para iniciar a venda.') %>"
+  data-out-of-stock-message="<%= t('Produto sem stock disponível.') %>"
+  data-increase-stock-error="<%= t('Não existe stock suficiente para aumentar a quantidade.') %>"
+  data-quantity-stock-error="<%= t('Não existe stock suficiente para essa quantidade.') %>"
+  data-missing-items-message="<%= t('Adicione produtos antes de finalizar.') %>"
+  data-cash-total-error="<%= t('Valor recebido insuficiente para o total da venda.') %>"
+  data-finish-sale-error="<%= t('Não foi possível finalizar a venda.') %>"
+>
   <div class="pos-products">
     <div class="category-tabs" role="tablist" aria-label="Categorias">
       <button class="active" type="button" data-category-filter="all">Todas</button>

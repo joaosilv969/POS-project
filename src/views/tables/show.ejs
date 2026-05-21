@@ -8,7 +8,16 @@
   </div>
 </section>
 
-<section class="pos-layout" data-table-order data-order-id="<%= order.id %>" data-total="<%= total %>" data-cash-method-id="<%= cashMethodId || '' %>">
+<section
+  class="pos-layout"
+  data-table-order
+  data-locale="<%= locale %>"
+  data-order-id="<%= order.id %>"
+  data-total="<%= total %>"
+  data-cash-method-id="<%= cashMethodId || '' %>"
+  data-update-table-error="<%= t('Não foi possível atualizar a mesa.') %>"
+  data-cash-total-error="<%= t('Valor recebido insuficiente para o total da conta.') %>"
+>
   <div class="pos-products">
     <div class="category-tabs" role="tablist" aria-label="Categorias">
       <button class="active" type="button" data-category-filter="all">Todas</button>

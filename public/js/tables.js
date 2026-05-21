@@ -4,6 +4,11 @@
     return;
   }
 
+  const locale = root.dataset.locale || document.documentElement.lang || "pt-PT";
+  const messages = {
+    updateTableError: root.dataset.updateTableError || "Não foi possível atualizar a mesa.",
+    cashTotalError: root.dataset.cashTotalError || "Valor recebido insuficiente para o total da conta.",
+  };
   const orderId = root.dataset.orderId;
   const errorBox = root.querySelector("[data-table-error]");
   const paymentMethod = root.querySelector("[data-payment-method]");
@@ -24,7 +29,7 @@
   }
 
   function formatCurrency(amount) {
-    return new Intl.NumberFormat("pt-PT", {
+    return new Intl.NumberFormat(locale, {
       style: "currency",
       currency: "EUR"
     }).format(amount);
@@ -67,7 +72,7 @@
     const result = await response.json();
 
     if (!response.ok || !result.ok) {
-      throw new Error(result.message || "Não foi possível atualizar a mesa.");
+      throw new Error(result.message || messages.updateTableError);
     }
 
     return result;
@@ -189,7 +194,7 @@
       if (paymentMethod.value === cashMethodId) {
         const received = parseCurrency(cashReceived.value);
         if (received < totalAmount) {
-          throw new Error("Valor recebido insuficiente para o total da conta.");
+          throw new Error(messages.cashTotalError);
         }
         payload.cash_received = received;
       }

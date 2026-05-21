@@ -1,18 +1,25 @@
 <!doctype html>
-<html lang="pt-PT">
+<html lang="<%= locale %>">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title><%= title %> | <%= appName %></title>
     <link rel="stylesheet" href="/assets/css/app.css?v=<%= assetVersion %>" />
   </head>
-  <body>
+  <body
+    data-locale="<%= locale %>"
+    data-vk-aria-label="<%= t('Teclado no ecrã') %>"
+    data-vk-title="<%= t('Teclado') %>"
+    data-vk-close-label="<%= t('Fechar') %>"
+    data-vk-space-label="<%= t('Espaço') %>"
+    data-vk-render-error="<%= t('Erro ao carregar teclado.') %>"
+  >
     <div class="app-shell">
       <aside class="sidebar">
         <a class="brand" href="/">
           <% if (brandMarkImage) { %>
             <span class="brand-mark">
-              <img src="<%= brandMarkUrl %>" alt="Logótipo" />
+              <img src="<%= brandMarkUrl %>" alt="<%= t('Logótipo') %>" />
             </span>
           <% } else { %>
             <span class="brand-mark">B</span>
@@ -23,7 +30,7 @@
           </span>
         </a>
 
-        <nav class="nav-list" aria-label="Menu principal">
+        <nav class="nav-list" aria-label="<%= t('Menu principal') %>">
           <% if (currentUser && currentUser.role === "admin") { %>
             <a class="<%= currentPath === '/dashboard' ? 'active' : '' %>" href="/dashboard">Dashboard</a>
           <% } else { %>
@@ -92,23 +99,23 @@
         <div class="sidebar-user">
           <div>
             <strong><%= currentUser.name %></strong>
-            <small><%= currentUser.role === "admin" ? "Administrador" : "Funcionário" %></small>
+            <small><%= currentUser.role === "admin" ? t("Administrador") : t("Funcionário") %></small>
           </div>
           <form method="post" action="/logout">
-            <button class="button ghost full" type="submit">Sair</button>
+            <button class="button ghost full" type="submit"><%= t("Sair") %></button>
           </form>
         </div>
       </aside>
 
       <header class="mobile-header">
-        <button class="burger-button" aria-label="Abrir menu">
+        <button class="burger-button" aria-label="<%= t('Abrir menu') %>">
           <span></span>
           <span></span>
           <span></span>
         </button>
         <div class="mobile-brand">
           <% if (brandMarkImage) { %>
-            <img src="<%= brandMarkUrl %>" alt="Logótipo" />
+            <img src="<%= brandMarkUrl %>" alt="<%= t('Logótipo') %>" />
           <% } else { %>
             <span>B</span>
           <% } %>

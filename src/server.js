@@ -12,10 +12,10 @@ const pool = require("./db");
 const { createBrandConfigStore } = require("./config/brand-config");
 const asyncRoute = require("./lib/async-route");
 const flash = require("./lib/flash");
-const { formatDateTime, money } = require("./lib/formatting");
 const { currentYear, parseInteger, parseNumber } = require("./lib/parsing");
 const { requireAdmin, requireAuth } = require("./middleware/auth");
 const { createPaymentMethodService } = require("./services/payment-methods");
+const { createTranslator, getSupportedLanguages, normalizeLanguage, translateHtml } = require("./i18n");
 const {
   makePercent,
   normalizeDuesReportFilters,
@@ -39,6 +39,27 @@ fs.mkdirSync(uploadDir, { recursive: true });
 
 const brandConfig = createBrandConfigStore(uploadDir);
 const paymentMethods = createPaymentMethodService({ pool });
+
+function createMoneyFormatter(locale = "pt-PT") {
+  return (value) =>
+    new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: "EUR",
+    }).format(Number(value || 0));
+}
+
+function createDateTimeFormatter(locale = "pt-PT") {
+  return (value) => {
+    if (!value) {
+      return "";
+    }
+
+    return new Intl.DateTimeFormat(locale, {
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(new Date(value));
+  };
+}
 
 function generateReceiptNumber(prefix) {
   const safePrefix = String(prefix || "").trim().toUpperCase();
@@ -110,6 +131,41 @@ app.use(
     },
   }),
 );
+
+app.use((req, res, next) => {
+  const locale = normalizeLanguage(req.session.language || req.headers["accept-language"]);
+  req.session.language = locale;
+  req.language = locale;
+  req.t = createTranslator(locale);
+
+  const originalRender = res.render.bind(res);
+  res.render = (view, options, callback) => {
+    let renderOptions = options;
+    let renderCallback = callback;
+
+    if (typeof renderOptions === "function") {
+      renderCallback = renderOptions;
+      renderOptions = undefined;
+    }
+
+    return originalRender(view, renderOptions, (error, html) => {
+      if (error) {
+        if (typeof renderCallback === "function") {
+          return renderCallback(error);
+        }
+        return next(error);
+      }
+
+      const localizedHtml = translateHtml(html, locale);
+      if (typeof renderCallback === "function") {
+        return renderCallback(null, localizedHtml);
+      }
+      return res.send(localizedHtml);
+    });
+  };
+
+  next();
+});
 
 app.use(
   "/assets",
@@ -197,6 +253,11 @@ app.use((req, res, next) => {
   res.locals.currentUser = req.session.user || null;
   res.locals.flash = req.session.flash || null;
   res.locals.currentPath = req.path;
+  res.locals.currentUrl = req.originalUrl;
+  res.locals.language = req.language;
+  res.locals.locale = req.language;
+  res.locals.t = req.t;
+  res.locals.availableLanguages = getSupportedLanguages();
   res.locals.brandMarkImage = currentBrandMarkImage;
   res.locals.brandMarkUrl = currentBrandMarkImage ? `/brand-mark?v=${encodeURIComponent(currentBrandMarkImage)}` : null;
   res.locals.appName = brandConfig.appName();
@@ -206,8 +267,8 @@ app.use((req, res, next) => {
   res.locals.receiptPrefixBar = brandConfig.receiptPrefixBar();
   res.locals.receiptPrefixMerchandising = brandConfig.receiptPrefixMerchandising();
   res.locals.assetVersion = assetVersion;
-  res.locals.money = money;
-  res.locals.formatDateTime = formatDateTime;
+  res.locals.money = createMoneyFormatter(req.language);
+  res.locals.formatDateTime = createDateTimeFormatter(req.language);
   res.locals.makePercent = makePercent;
   delete req.session.flash;
   next();
@@ -632,6 +693,17 @@ app.post("/logout", requireAuth, (req, res) => {
   req.session.destroy(() => {
     res.redirect("/login");
   });
+});
+
+app.post("/language", (req, res) => {
+  req.session.language = normalizeLanguage(req.body.language);
+  const returnTo = String(req.body.return_to || "").trim();
+
+  if (returnTo.startsWith("/")) {
+    return res.redirect(returnTo);
+  }
+
+  return res.redirect(req.session.user ? "/" : "/login");
 });
 
 app.get("/brand-mark", (req, res) => {
@@ -1641,7 +1713,7 @@ app.post(
       ]);
 
       if (!order) {
-        throw new Error("Conta de mesa não encontrada.");
+        throw new Error(req.t("Conta de mesa não encontrada."));
       }
 
       const [[product]] = await connection.execute(
@@ -1652,7 +1724,7 @@ app.post(
       );
 
       if (!product) {
-        throw new Error("Produto indisponível.");
+        throw new Error(req.t("Produto indisponível."));
       }
 
       const [[existingItem]] = await connection.execute(
@@ -1662,7 +1734,7 @@ app.post(
       const nextQuantity = (existingItem ? existingItem.quantity : 0) + quantity;
 
       if (nextQuantity > product.stock) {
-        throw new Error(`Stock insuficiente para ${product.name}. Disponível: ${product.stock}.`);
+        throw new Error(req.t("Stock insuficiente para {name}. Disponível: {stock}.", { name: product.name, stock: product.stock }));
       }
 
       if (existingItem) {
@@ -1702,7 +1774,7 @@ app.post(
       ]);
 
       if (!order) {
-        throw new Error("Conta de mesa não encontrada.");
+        throw new Error(req.t("Conta de mesa não encontrada."));
       }
 
       const [[item]] = await connection.execute(
@@ -1715,14 +1787,19 @@ app.post(
       );
 
       if (!item) {
-        throw new Error("Produto não encontrado na mesa.");
+        throw new Error(req.t("Produto não encontrado na mesa."));
       }
 
       if (quantity <= 0) {
         await connection.execute("DELETE FROM table_order_items WHERE id = ?", [itemId]);
       } else {
         if (item.stock !== null && quantity > item.stock) {
-          throw new Error(`Stock insuficiente para ${item.product_name}. Disponível: ${item.stock}.`);
+          throw new Error(
+            req.t("Stock insuficiente para {name}. Disponível: {stock}.", {
+              name: item.product_name,
+              stock: item.stock,
+            }),
+          );
         }
 
         await connection.execute("UPDATE table_order_items SET quantity = ? WHERE id = ?", [quantity, itemId]);
@@ -1753,7 +1830,7 @@ app.post(
       ]);
 
       if (!order) {
-        throw new Error("Conta de mesa não encontrada.");
+        throw new Error(req.t("Conta de mesa não encontrada."));
       }
 
       await connection.execute("UPDATE table_orders SET status = 'cancelled', closed_at = NOW() WHERE id = ?", [orderId]);
@@ -1793,7 +1870,7 @@ app.post(
       );
 
       if (!order) {
-        throw new Error("Conta de mesa não encontrada.");
+        throw new Error(req.t("Conta de mesa não encontrada."));
       }
 
       const [[paymentMethod]] = await connection.execute("SELECT id, code FROM payment_methods WHERE id = ? AND active = 1", [
@@ -1801,7 +1878,7 @@ app.post(
       ]);
 
       if (!paymentMethod) {
-        throw new Error("Método de pagamento inválido.");
+        throw new Error(req.t("Método de pagamento inválido."));
       }
 
       const isCash = paymentMethod.code === "cash";
@@ -1812,7 +1889,7 @@ app.post(
       );
 
       if (items.length === 0) {
-        throw new Error("A mesa não tem produtos para fechar.");
+        throw new Error(req.t("A mesa não tem produtos para fechar."));
       }
 
       let total = 0;
@@ -1822,11 +1899,11 @@ app.post(
         const [[product]] = await connection.execute("SELECT id, stock FROM products WHERE id = ? FOR UPDATE", [item.product_id]);
 
         if (!product) {
-          throw new Error(`Produto removido: ${item.product_name}.`);
+          throw new Error(req.t("Produto removido: {name}.", { name: item.product_name }));
         }
 
         if (product.stock < item.quantity) {
-          throw new Error(`Stock insuficiente para ${item.product_name}. Disponível: ${product.stock}.`);
+          throw new Error(req.t("Stock insuficiente para {name}. Disponível: {stock}.", { name: item.product_name, stock: product.stock }));
         }
 
         const lineTotal = Number((Number(item.unit_price) * item.quantity).toFixed(2));
@@ -1836,7 +1913,7 @@ app.post(
 
       // Validate cash received amount
       if (isCash && cashReceived !== null && cashReceived < total) {
-        throw new Error("Valor recebido insuficiente para o total da conta.");
+        throw new Error(req.t("Valor recebido insuficiente para o total da conta."));
       }
 
       const receiptNumber = generateReceiptNumber(brandConfig.receiptPrefixBar());
@@ -1959,11 +2036,13 @@ app.post(
     }
 
     if (!paymentMethodId || itemMap.size === 0) {
-      return res.status(400).json({ ok: false, message: "Venda sem produtos ou método de pagamento." });
+      return res.status(400).json({ ok: false, message: req.t("Venda sem produtos ou método de pagamento.") });
     }
 
     if (!memberNumber || !memberName) {
-      return res.status(400).json({ ok: false, message: "Nº sócio e nome do sócio são obrigatórios para vendas de merchandising." });
+      return res
+        .status(400)
+        .json({ ok: false, message: req.t("Nº sócio e nome do sócio são obrigatórios para vendas de merchandising.") });
     }
 
     const connection = await pool.getConnection();
@@ -1976,7 +2055,7 @@ app.post(
       ]);
 
       if (!paymentMethod) {
-        throw new Error("Método de pagamento inválido.");
+        throw new Error(req.t("Método de pagamento inválido."));
       }
 
       const saleItems = [];
@@ -1992,15 +2071,15 @@ app.post(
         );
 
         if (!product) {
-          throw new Error("Um dos produtos já não está disponível.");
+          throw new Error(req.t("Um dos produtos já não está disponível."));
         }
 
         if (product.product_type !== "merchandising") {
-          throw new Error(`O produto ${product.name} não pode ser vendido nesta vista de merchandising.`);
+          throw new Error(req.t("O produto {name} não pode ser vendido nesta vista de merchandising.", { name: product.name }));
         }
 
         if (product.stock < quantity) {
-          throw new Error(`Stock insuficiente para ${product.name}. Disponível: ${product.stock}.`);
+          throw new Error(req.t("Stock insuficiente para {name}. Disponível: {stock}.", { name: product.name, stock: product.stock }));
         }
 
         const lineTotal = Number((Number(product.price) * quantity).toFixed(2));
@@ -2073,7 +2152,7 @@ app.post(
     }
 
     if (!paymentMethodId || itemMap.size === 0) {
-      return res.status(400).json({ ok: false, message: "Venda sem produtos ou método de pagamento." });
+      return res.status(400).json({ ok: false, message: req.t("Venda sem produtos ou método de pagamento.") });
     }
 
     const connection = await pool.getConnection();
@@ -2086,7 +2165,7 @@ app.post(
       ]);
 
       if (!paymentMethod) {
-        throw new Error("Método de pagamento inválido.");
+        throw new Error(req.t("Método de pagamento inválido."));
       }
 
       const saleItems = [];
@@ -2102,15 +2181,15 @@ app.post(
         );
 
         if (!product) {
-          throw new Error("Um dos produtos já não está disponível.");
+          throw new Error(req.t("Um dos produtos já não está disponível."));
         }
 
         if (product.product_type !== "bar") {
-          throw new Error(`O produto ${product.name} não pode ser vendido no ponto de venda.`);
+          throw new Error(req.t("O produto {name} não pode ser vendido no ponto de venda.", { name: product.name }));
         }
 
         if (product.stock < quantity) {
-          throw new Error(`Stock insuficiente para ${product.name}. Disponível: ${product.stock}.`);
+          throw new Error(req.t("Stock insuficiente para {name}. Disponível: {stock}.", { name: product.name, stock: product.stock }));
         }
 
         const lineTotal = Number((Number(product.price) * quantity).toFixed(2));

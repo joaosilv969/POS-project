@@ -1,13 +1,13 @@
 <div class="login-brand">
   <span class="brand-mark">
     <% if (brandMarkImage) { %>
-      <img src="<%= brandMarkUrl %>" alt="Logótipo" />
+      <img src="<%= brandMarkUrl %>" alt="<%= t('Logótipo') %>" />
     <% } else { %>
       B
     <% } %>
   </span>
-  <h1>Bar POS</h1>
-  <p>Entre para gerir vendas, stock e produtos.</p>
+  <h1><%= appName %></h1>
+  <p><%= t("Entre para gerir vendas, stock e produtos.") %></p>
 </div>
 
 <form class="form-stack" method="post" action="/login">
@@ -30,10 +30,10 @@
 
   <label class="toggle-field compact">
     <input type="checkbox" data-vk-toggle />
-    Teclado no ecrã
+    <%= t("Teclado no ecrã") %>
   </label>
 
-  <button class="button primary full" type="submit">Entrar</button>
+  <button class="button primary full" type="submit"><%= t("Entrar") %></button>
 </form>
 
 <div class="hint-box">

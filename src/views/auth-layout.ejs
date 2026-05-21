@@ -1,12 +1,20 @@
 <!doctype html>
-<html lang="pt-PT">
+<html lang="<%= locale %>">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title><%= title %> | Bar POS</title>
+    <title><%= title %> | <%= appName %></title>
     <link rel="stylesheet" href="/assets/css/app.css?v=<%= assetVersion %>" />
   </head>
-  <body class="auth-page">
+  <body
+    class="auth-page"
+    data-locale="<%= locale %>"
+    data-vk-aria-label="<%= t('Teclado no ecrã') %>"
+    data-vk-title="<%= t('Teclado') %>"
+    data-vk-close-label="<%= t('Fechar') %>"
+    data-vk-space-label="<%= t('Espaço') %>"
+    data-vk-render-error="<%= t('Erro ao carregar teclado.') %>"
+  >
     <main class="auth-card">
       <%- include("partials/flash") %>
       <%- body %>

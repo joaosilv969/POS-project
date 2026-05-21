@@ -4,8 +4,19 @@
     return;
   }
 
+  const locale = root.dataset.locale || document.documentElement.lang || "pt-PT";
+  const messages = {
+    emptyCart: root.dataset.emptyCartMessage || "Adicione produtos para iniciar a venda.",
+    outOfStock: root.dataset.outOfStockMessage || "Produto sem stock disponível.",
+    increaseStockError: root.dataset.increaseStockError || "Não existe stock suficiente para aumentar a quantidade.",
+    quantityStockError: root.dataset.quantityStockError || "Não existe stock suficiente para essa quantidade.",
+    missingItems: root.dataset.missingItemsMessage || "Adicione produtos antes de finalizar.",
+    missingMember: root.dataset.missingMemberMessage || "Nº sócio e nome do sócio são obrigatórios para vendas de merchandising.",
+    cashTotalError: root.dataset.cashTotalError || "Valor recebido insuficiente para o total da venda.",
+    finishSaleError: root.dataset.finishSaleError || "Não foi possível finalizar a venda.",
+  };
   const cart = new Map();
-  const formatter = new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" });
+  const formatter = new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" });
   const cartItems = root.querySelector("[data-cart-items]");
   const totalElements = [root.querySelector("[data-cart-total]")];
   const paymentMethod = root.querySelector("[data-payment-method]");
@@ -49,7 +60,7 @@
   }
 
   function formatCurrency(amount) {
-    return new Intl.NumberFormat("pt-PT", {
+    return new Intl.NumberFormat(locale, {
       style: "currency",
       currency: "EUR",
     }).format(amount);
@@ -200,7 +211,7 @@
     if (cart.size === 0) {
       const empty = document.createElement("div");
       empty.className = "empty-cart";
-      empty.textContent = "Adicione produtos para iniciar a venda.";
+      empty.textContent = messages.emptyCart;
       cartItems.appendChild(empty);
       updateTotals();
       return;
@@ -242,13 +253,13 @@
     const stock = Number(tile.dataset.productStock);
 
     if (stock <= 0) {
-      showError("Produto sem stock disponível.");
+      showError(messages.outOfStock);
       return;
     }
 
     if (existing) {
       if (existing.quantity >= existing.stock) {
-        showError("Não existe stock suficiente para aumentar a quantidade.");
+        showError(messages.increaseStockError);
         return;
       }
       existing.quantity += 1;
@@ -278,7 +289,7 @@
     } else if (nextQuantity <= item.stock) {
       item.quantity = nextQuantity;
     } else {
-      showError("Não existe stock suficiente para essa quantidade.");
+      showError(messages.quantityStockError);
     }
 
     renderCart();
@@ -316,12 +327,12 @@
 
   finishButton.addEventListener("click", async () => {
     if (cart.size === 0) {
-      showError("Adicione produtos antes de finalizar.");
+      showError(messages.missingItems);
       return;
     }
 
     if (!memberNumber.value.trim() || !memberName.value.trim()) {
-      showError("Nº sócio e nome do sócio são obrigatórios para vendas de merchandising.");
+      showError(messages.missingMember);
       return;
     }
 
@@ -342,7 +353,7 @@
       if (paymentMethod.value === cashMethodId) {
         const received = parseCurrency(cashReceived.value);
         if (received < total()) {
-          throw new Error("Valor recebido insuficiente para o total da venda.");
+          throw new Error(messages.cashTotalError);
         }
         payload.cash_received = received;
       }
@@ -355,7 +366,7 @@
       const result = await response.json();
 
       if (!response.ok || !result.ok) {
-        throw new Error(result.message || "Não foi possível finalizar a venda.");
+        throw new Error(result.message || messages.finishSaleError);
       }
 
       window.location.href = result.redirect;

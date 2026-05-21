@@ -127,3 +127,23 @@
     </div>
   <% } %>
 </section>
+
+<section class="panel">
+  <div class="panel-header">
+    <h2>Idioma</h2>
+  </div>
+
+  <form class="form-stack" method="post" action="/language">
+    <input type="hidden" name="return_to" value="/settings" />
+    <label>
+      Idioma
+      <select name="language">
+        <% availableLanguages.forEach((item) => { %>
+          <option value="<%= item.value %>" <%= item.code === locale ? "selected" : "" %>><%= item.label %></option>
+        <% }) %>
+      </select>
+    </label>
+
+    <button class="button secondary" type="submit">Aplicar idioma</button>
+  </form>
+</section>
