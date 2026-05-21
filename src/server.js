@@ -193,10 +193,12 @@ async function loginPinExists(connection, pin, excludedUserId = null) {
 }
 
 app.use((req, res, next) => {
+  const currentBrandMarkImage = brandConfig.get().brandMarkImage || null;
   res.locals.currentUser = req.session.user || null;
   res.locals.flash = req.session.flash || null;
   res.locals.currentPath = req.path;
-  res.locals.brandMarkImage = brandConfig.get().brandMarkImage || null;
+  res.locals.brandMarkImage = currentBrandMarkImage;
+  res.locals.brandMarkUrl = currentBrandMarkImage ? `/brand-mark?v=${encodeURIComponent(currentBrandMarkImage)}` : null;
   res.locals.appName = brandConfig.appName();
   res.locals.appSubtitle = brandConfig.appSubtitle();
   res.locals.duesDefaultAmount = duesDefaultAmount();
@@ -587,11 +589,31 @@ app.get("/login", (req, res) => {
 app.post(
   "/login",
   asyncRoute(async (req, res) => {
+    const identifier = String(req.body.identifier || "").trim();
+    const password = String(req.body.password || "");
     const pin = String(req.body.pin || "").trim();
-    const user = await findUserByLoginPin(pool, pin);
+
+    let user = null;
+
+    if (identifier || password) {
+      const normalized = identifier.toLowerCase();
+      const [users] = await pool.execute(
+        "SELECT * FROM users WHERE active = 1 AND (LOWER(email) = ? OR LOWER(name) = ?)",
+        [normalized, normalized],
+      );
+      const candidate = users[0];
+
+      if (candidate && (await bcrypt.compare(password, candidate.password_hash))) {
+        user = candidate;
+      }
+    }
+
+    if (!user && pin) {
+      user = await findUserByLoginPin(pool, pin);
+    }
 
     if (!user) {
-      flash(req, "error", "PIN inválido.");
+      flash(req, "error", "Credenciais inválidas.");
       return res.redirect("/login");
     }
 
@@ -618,7 +640,11 @@ app.get("/brand-mark", (req, res) => {
     return res.status(404).end();
   }
 
-  return res.sendFile(path.join(uploadDir, brandMarkImage));
+  return res.sendFile(path.join(uploadDir, brandMarkImage), {
+    etag: true,
+    immutable: true,
+    maxAge: "30d",
+  });
 });
 
 app.get(
