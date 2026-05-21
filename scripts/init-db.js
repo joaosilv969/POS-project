@@ -208,6 +208,46 @@ async function seedProducts(connection) {
   }
 }
 
+function readLegacyBrandConfig(uploadDir) {
+  try {
+    const filePath = path.join(uploadDir, "brand-config.json");
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+async function seedAppSettingsFromLegacyConfig(connection) {
+  const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, "..", "uploads");
+  const legacyConfig = readLegacyBrandConfig(uploadDir);
+  if (!legacyConfig || typeof legacyConfig !== "object") {
+    return;
+  }
+
+  const allowedKeys = [
+    "appName",
+    "appSubtitle",
+    "defaultLowStockThreshold",
+    "receiptPrefixBar",
+    "receiptPrefixMerchandising",
+    "duesDefaultAmount",
+    "language",
+    "brandMarkImage",
+  ];
+
+  for (const key of allowedKeys) {
+    if (!(key in legacyConfig)) {
+      continue;
+    }
+
+    const value = legacyConfig[key];
+    await connection.execute("INSERT IGNORE INTO app_settings (setting_key, setting_value) VALUES (?, ?)", [
+      key,
+      value === null || value === undefined ? null : String(value),
+    ]);
+  }
+}
+
 async function main() {
   const connection = await connectWithRetry();
   const migrationsDir = path.join(__dirname, "..", "migrations");
@@ -235,6 +275,7 @@ async function main() {
   await seedUsers(connection);
   await seedAdminCancelPin(connection);
   await seedProducts(connection);
+  await seedAppSettingsFromLegacyConfig(connection);
   await connection.end();
 }
 

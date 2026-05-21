@@ -11,7 +11,7 @@ const createMySQLSessionStore = require("express-mysql-session");
 const helmet = require("helmet");
 const packageInfo = require("../package.json");
 const pool = require("./db");
-const { createBrandConfigStore } = require("./config/brand-config");
+const { createAppSettingsStore } = require("./app-settings");
 const asyncRoute = require("./lib/async-route");
 const flash = require("./lib/flash");
 const { currentYear, parseInteger, parseNumber } = require("./lib/parsing");
@@ -39,7 +39,7 @@ const assetVersion = process.env.ASSET_VERSION || String(Date.now());
 
 fs.mkdirSync(uploadDir, { recursive: true });
 
-const brandConfig = createBrandConfigStore(uploadDir);
+const appSettings = createAppSettingsStore({ pool });
 const paymentMethods = createPaymentMethodService({ pool });
 const softwareAuthor = String(packageInfo.author || "").trim() || "joaosilv969 AKA Frazao";
 
@@ -94,8 +94,6 @@ async function listSoftwareVersions() {
   return rows;
 }
 
-void registerSoftwareVersion();
-
 function createMoneyFormatter(locale = "pt-PT") {
   return (value) =>
     new Intl.NumberFormat(locale, {
@@ -143,7 +141,7 @@ function generateReceiptNumber(prefix) {
 }
 
 function duesDefaultAmount() {
-  return brandConfig.duesDefaultAmount();
+  return appSettings.duesDefaultAmount();
 }
 
 async function duesAmountForYear(year) {
@@ -208,7 +206,7 @@ app.use(
 );
 
 app.use((req, res, next) => {
-  const locale = normalizeLanguage(brandConfig.get().language || req.headers["accept-language"]);
+  const locale = normalizeLanguage(appSettings.language() || req.headers["accept-language"]);
   const theme = readCookieValue(req.headers.cookie, "app_theme") === "dark" ? "dark" : "light";
   req.language = locale;
   req.theme = theme;
@@ -325,7 +323,7 @@ async function loginPinExists(connection, pin, excludedUserId = null) {
 }
 
 app.use((req, res, next) => {
-  const currentBrandMarkImage = brandConfig.get().brandMarkImage || null;
+  const currentBrandMarkImage = appSettings.brandMarkImage() || null;
   res.locals.currentUser = req.session.user || null;
   res.locals.flash = req.session.flash || null;
   res.locals.currentPath = req.path;
@@ -337,14 +335,14 @@ app.use((req, res, next) => {
   res.locals.availableLanguages = getSupportedLanguages();
   res.locals.brandMarkImage = currentBrandMarkImage;
   res.locals.brandMarkUrl = currentBrandMarkImage ? `/brand-mark?v=${encodeURIComponent(currentBrandMarkImage)}` : null;
-  res.locals.appName = brandConfig.appName();
-  res.locals.appSubtitle = brandConfig.appSubtitle();
+  res.locals.appName = appSettings.appName();
+  res.locals.appSubtitle = appSettings.appSubtitle();
   res.locals.softwareVersion = softwareVersion;
   res.locals.softwareAuthor = softwareAuthor;
   res.locals.duesDefaultAmount = duesDefaultAmount();
-  res.locals.defaultLowStockThreshold = brandConfig.defaultLowStockThreshold();
-  res.locals.receiptPrefixBar = brandConfig.receiptPrefixBar();
-  res.locals.receiptPrefixMerchandising = brandConfig.receiptPrefixMerchandising();
+  res.locals.defaultLowStockThreshold = appSettings.defaultLowStockThreshold();
+  res.locals.receiptPrefixBar = appSettings.receiptPrefixBar();
+  res.locals.receiptPrefixMerchandising = appSettings.receiptPrefixMerchandising();
   res.locals.assetVersion = assetVersion;
   res.locals.money = createMoneyFormatter(req.language);
   res.locals.formatDateTime = createDateTimeFormatter(req.language);
@@ -458,7 +456,7 @@ function buildProductFromRequest(req, fixedProductType = null) {
     referenceCode: String(req.body.reference_code || "").trim().toUpperCase(),
     price: parseNumber(req.body.price),
     stock: parseInteger(req.body.stock),
-    lowStockThreshold: parseInteger(req.body.low_stock_threshold, brandConfig.defaultLowStockThreshold()),
+    lowStockThreshold: parseInteger(req.body.low_stock_threshold, appSettings.defaultLowStockThreshold()),
     active: req.body.active ? 1 : 0,
     availableForSale: req.body.available_for_sale ? 1 : 0,
   };
@@ -774,20 +772,24 @@ app.post("/logout", requireAuth, (req, res) => {
   });
 });
 
-app.post("/language", requireAdmin, (req, res) => {
-  const locale = normalizeLanguage(req.body.language);
-  brandConfig.update({ language: locale });
-  const returnTo = String(req.body.return_to || "").trim();
+app.post(
+  "/language",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    const locale = normalizeLanguage(req.body.language);
+    await appSettings.update({ language: locale });
+    const returnTo = String(req.body.return_to || "").trim();
 
-  if (returnTo.startsWith("/")) {
-    return res.redirect(returnTo);
-  }
+    if (returnTo.startsWith("/")) {
+      return res.redirect(returnTo);
+    }
 
-  return res.redirect(req.session.user ? "/" : "/login");
-});
+    return res.redirect(req.session.user ? "/" : "/login");
+  }),
+);
 
 app.get("/brand-mark", (req, res) => {
-  const { brandMarkImage } = brandConfig.get();
+  const { brandMarkImage } = appSettings.get();
   if (!brandMarkImage) {
     return res.status(404).end();
   }
@@ -808,12 +810,12 @@ app.get(
     const softwareVersions = await listSoftwareVersions();
     res.render("settings", {
       title: "Configuração",
-      brandMarkImage: brandConfig.get().brandMarkImage || null,
-      appName: brandConfig.appName(),
-      appSubtitle: brandConfig.appSubtitle(),
-      defaultLowStockThreshold: brandConfig.defaultLowStockThreshold(),
-      receiptPrefixBar: brandConfig.receiptPrefixBar(),
-      receiptPrefixMerchandising: brandConfig.receiptPrefixMerchandising(),
+      brandMarkImage: appSettings.brandMarkImage() || null,
+      appName: appSettings.appName(),
+      appSubtitle: appSettings.appSubtitle(),
+      defaultLowStockThreshold: appSettings.defaultLowStockThreshold(),
+      receiptPrefixBar: appSettings.receiptPrefixBar(),
+      receiptPrefixMerchandising: appSettings.receiptPrefixMerchandising(),
       duesDefaultAmount: duesDefaultAmount(),
       softwareVersions,
       duesYears,
@@ -827,7 +829,7 @@ app.post(
   asyncRoute(async (req, res) => {
     const name = String(req.body.app_name || "").trim();
     const subtitle = String(req.body.app_subtitle || "").trim();
-    const threshold = parseInteger(req.body.default_low_stock_threshold, brandConfig.defaultLowStockThreshold());
+    const threshold = parseInteger(req.body.default_low_stock_threshold, appSettings.defaultLowStockThreshold());
     const barPrefix = String(req.body.receipt_prefix_bar || "").trim().toUpperCase();
     const merchPrefix = String(req.body.receipt_prefix_merchandising || "").trim().toUpperCase();
 
@@ -856,13 +858,13 @@ app.post(
       return res.redirect("/settings");
     }
 
-    const currentBrandConfig = brandConfig.get();
-    brandConfig.update({
-      appName: name || currentBrandConfig.appName,
-      appSubtitle: subtitle || currentBrandConfig.appSubtitle,
+    const currentSettings = appSettings.get();
+    await appSettings.update({
+      appName: name || currentSettings.appName,
+      appSubtitle: subtitle || currentSettings.appSubtitle,
       defaultLowStockThreshold: threshold,
-      receiptPrefixBar: barPrefix || currentBrandConfig.receiptPrefixBar,
-      receiptPrefixMerchandising: merchPrefix || currentBrandConfig.receiptPrefixMerchandising,
+      receiptPrefixBar: barPrefix || currentSettings.receiptPrefixBar,
+      receiptPrefixMerchandising: merchPrefix || currentSettings.receiptPrefixMerchandising,
     });
     flash(req, "success", "Configuração atualizada.");
     return res.redirect("/settings");
@@ -896,12 +898,12 @@ app.post(
       return res.redirect("/settings");
     }
 
-    const currentBrandConfig = brandConfig.get();
-    if (currentBrandConfig.brandMarkImage) {
-      deleteUpload(currentBrandConfig.brandMarkImage);
+    const currentSettings = appSettings.get();
+    if (currentSettings.brandMarkImage) {
+      deleteUpload(currentSettings.brandMarkImage);
     }
 
-    brandConfig.update({ brandMarkImage: req.file.filename });
+    await appSettings.update({ brandMarkImage: req.file.filename });
     flash(req, "success", "Logótipo atualizado com sucesso.");
     return res.redirect("/settings");
   }),
@@ -917,7 +919,7 @@ app.post(
       return res.redirect("/settings");
     }
 
-    brandConfig.update({ duesDefaultAmount: amount });
+    await appSettings.update({ duesDefaultAmount: amount });
     flash(req, "success", "Valor default da cota atualizado.");
     return res.redirect("/settings");
   }),
@@ -1999,7 +2001,7 @@ app.post(
         throw new Error(req.t("Valor recebido insuficiente para o total da conta."));
       }
 
-      const receiptNumber = generateReceiptNumber(brandConfig.receiptPrefixBar());
+      const receiptNumber = generateReceiptNumber(appSettings.receiptPrefixBar());
       const [saleResult] = await connection.execute(
         `INSERT INTO sales
           (receipt_number, user_id, payment_method_id, member_number, member_name, table_id, table_order_id, total_amount, cash_received)
@@ -2170,7 +2172,7 @@ app.post(
         saleItems.push({ product, quantity, lineTotal });
       }
 
-      const receiptNumber = generateReceiptNumber(brandConfig.receiptPrefixMerchandising());
+      const receiptNumber = generateReceiptNumber(appSettings.receiptPrefixMerchandising());
       const [saleResult] = await connection.execute(
         "INSERT INTO sales (receipt_number, user_id, payment_method_id, member_number, member_name, total_amount) VALUES (?, ?, ?, ?, ?, ?)",
         [receiptNumber, req.session.user.id, paymentMethodId, memberNumber, memberName, total],
@@ -2280,7 +2282,7 @@ app.post(
         saleItems.push({ product, quantity, lineTotal });
       }
 
-      const receiptNumber = generateReceiptNumber(brandConfig.receiptPrefixBar());
+      const receiptNumber = generateReceiptNumber(appSettings.receiptPrefixBar());
       const [saleResult] = await connection.execute(
         "INSERT INTO sales (receipt_number, user_id, payment_method_id, member_number, member_name, total_amount) VALUES (?, ?, ?, ?, ?, ?)",
         [receiptNumber, req.session.user.id, paymentMethodId, memberNumber, memberName, total],
@@ -2346,7 +2348,7 @@ async function renderSale(req, res, saleId) {
   }
 
   const [items] = await pool.execute("SELECT * FROM sale_items WHERE sale_id = ? ORDER BY id", [sale.id]);
-  const merchPrefix = brandConfig.receiptPrefixMerchandising();
+  const merchPrefix = appSettings.receiptPrefixMerchandising();
   const newSalePath = String(sale.receipt_number || "").startsWith(merchPrefix) ? "/merchandising/sale" : "/pos";
   return res.render("pos/receipt", { title: "Recibo", sale, items, newSalePath });
 }
@@ -4110,6 +4112,15 @@ app.use((error, req, res, next) => {
   });
 });
 
-app.listen(port, () => {
-  console.log(`Bar POS disponível em http://localhost:${port}`);
+async function start() {
+  await appSettings.hydrate();
+  await registerSoftwareVersion();
+  app.listen(port, () => {
+    console.log(`Bar POS disponível em http://localhost:${port}`);
+  });
+}
+
+start().catch((error) => {
+  console.error("Erro ao iniciar aplicação:", error);
+  process.exit(1);
 });
