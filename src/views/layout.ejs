@@ -3,10 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="<%= theme === 'dark' ? 'dark' : 'light' %>" />
     <title><%= title %> | <%= appName %></title>
     <link rel="stylesheet" href="/assets/css/app.css?v=<%= assetVersion %>" />
   </head>
   <body
+    bgcolor="<%= theme === 'dark' ? '#0f1512' : '#f5f6f1' %>"
+    data-theme="<%= theme %>"
     data-locale="<%= locale %>"
     data-vk-aria-label="<%= t('Teclado no ecrã') %>"
     data-vk-title="<%= t('Teclado') %>"

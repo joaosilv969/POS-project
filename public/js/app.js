@@ -1,3 +1,36 @@
+const DARK_MODE_KEY = "app_dark_mode";
+
+function setDarkMode(enabled) {
+  document.body.dataset.theme = enabled ? "dark" : "light";
+  document.querySelectorAll("[data-dark-mode-toggle]").forEach((button) => {
+    button.textContent = enabled ? "Desativar dark mode" : "Ativar dark mode";
+  });
+
+  try {
+    localStorage.setItem(DARK_MODE_KEY, enabled ? "1" : "0");
+  } catch {
+    // ignore
+  }
+
+  document.cookie = `app_theme=${enabled ? "dark" : "light"}; Path=/; Max-Age=31536000; SameSite=Lax`;
+}
+
+function isDarkModeEnabled() {
+  try {
+    return localStorage.getItem(DARK_MODE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+setDarkMode(isDarkModeEnabled());
+
+document.querySelectorAll("[data-dark-mode-toggle]").forEach((button) => {
+  button.addEventListener("click", () => {
+    setDarkMode(document.body.dataset.theme !== "dark");
+  });
+});
+
 document.querySelectorAll("[data-confirm]").forEach((form) => {
   form.addEventListener("submit", (event) => {
     const message = form.getAttribute("data-confirm");

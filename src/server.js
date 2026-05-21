@@ -61,6 +61,25 @@ function createDateTimeFormatter(locale = "pt-PT") {
   };
 }
 
+function readCookieValue(cookieHeader, key) {
+  const source = String(cookieHeader || "");
+  if (!source) {
+    return "";
+  }
+
+  const prefix = `${key}=`;
+  const entry = source
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix));
+
+  if (!entry) {
+    return "";
+  }
+
+  return decodeURIComponent(entry.slice(prefix.length));
+}
+
 function generateReceiptNumber(prefix) {
   const safePrefix = String(prefix || "").trim().toUpperCase();
   const normalizedPrefix = /^[A-Z]{1,3}$/.test(safePrefix) ? safePrefix : "V";
@@ -134,7 +153,9 @@ app.use(
 
 app.use((req, res, next) => {
   const locale = normalizeLanguage(brandConfig.get().language || req.headers["accept-language"]);
+  const theme = readCookieValue(req.headers.cookie, "app_theme") === "dark" ? "dark" : "light";
   req.language = locale;
+  req.theme = theme;
   req.t = createTranslator(locale);
 
   const originalRender = res.render.bind(res);
@@ -255,6 +276,7 @@ app.use((req, res, next) => {
   res.locals.currentUrl = req.originalUrl;
   res.locals.language = req.language;
   res.locals.locale = req.language;
+  res.locals.theme = req.theme;
   res.locals.t = req.t;
   res.locals.availableLanguages = getSupportedLanguages();
   res.locals.brandMarkImage = currentBrandMarkImage;
