@@ -90,61 +90,9 @@
 <section class="panel">
   <div class="panel-header">
     <h2>Email</h2>
+    <a class="button primary" href="/settings/email">Configurar emails</a>
   </div>
-
-  <form class="form-stack" method="post" action="/settings/email">
-    <div class="form-grid">
-      <label>
-        Servidor SMTP
-        <input name="smtp_host" value="<%= emailSettings ? emailSettings.smtpHost : '' %>" placeholder="smtp.exemplo.pt" />
-      </label>
-      <label>
-        Porta
-        <input type="number" name="smtp_port" min="1" max="65535" value="<%= emailSettings ? emailSettings.smtpPort : 587 %>" />
-      </label>
-    </div>
-
-    <label class="toggle-field">
-      <input type="checkbox" name="smtp_secure" <%= emailSettings && emailSettings.smtpSecure ? "checked" : "" %> />
-      Ligação segura direta (SSL/TLS)
-    </label>
-
-    <div class="form-grid">
-      <label>
-        Email de envio
-        <input type="email" name="smtp_from" value="<%= emailSettings ? emailSettings.smtpFrom : '' %>" placeholder="clube@example.com" />
-      </label>
-      <label>
-        Utilizador SMTP
-        <input name="smtp_user" value="<%= emailSettings ? emailSettings.smtpUser : '' %>" autocomplete="username" />
-      </label>
-    </div>
-
-    <label>
-      Password SMTP
-      <input type="password" name="smtp_pass" autocomplete="new-password" placeholder="<%= emailSettings && emailSettings.smtpPass ? 'Configurada - deixe vazio para manter' : '' %>" />
-    </label>
-
-    <label class="toggle-field">
-      <input type="checkbox" name="send_member_welcome_email" <%= sendMemberWelcomeEmail ? "checked" : "" %> />
-      Enviar email com estatutos quando um novo sócio for criado
-    </label>
-
-    <button class="button primary" type="submit">Guardar email</button>
-  </form>
-
-  <hr />
-
-  <form class="form-stack" method="post" action="/settings/statutes-pdf" enctype="multipart/form-data">
-    <% if (statutesPdfFile) { %>
-      <p class="text-muted">PDF atual: <strong><%= statutesPdfFile %></strong></p>
-    <% } %>
-    <label>
-      PDF dos estatutos
-      <input type="file" name="statutes_pdf" accept="application/pdf,.pdf" required />
-    </label>
-    <button class="button secondary" type="submit">Atualizar PDF</button>
-  </form>
+  <p class="text-muted">Configure SMTP, PDF dos estatutos e textos dos emails automáticos numa página dedicada.</p>
 </section>
 
 <section class="panel">

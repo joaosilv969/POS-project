@@ -3,6 +3,28 @@ function validReceiptPrefix(value, fallback) {
   return /^[A-Z]{1,3}$/.test(normalized) ? normalized : fallback;
 }
 
+const DEFAULT_MEMBER_WELCOME_EMAIL_SUBJECT = "Bem-vindo ao {appName}";
+const DEFAULT_MEMBER_WELCOME_EMAIL_BODY = `Olá {memberName},
+
+Bem-vindo ao {appName}.
+
+Segue em anexo o PDF com os estatutos do motoclube.
+
+Cumprimentos,
+{appName}`;
+const DEFAULT_DEBTOR_EMAIL_SUBJECT = "Cota em atraso - {year}";
+const DEFAULT_DEBTOR_EMAIL_BODY = `Olá {memberName},
+
+De acordo com os nossos registos, existe um valor em falta na tua cota de {year}.
+
+Valor anual: {expectedAmount}
+Valor pago: {paidTotal}
+Valor em falta: {dueAmount}
+
+Obrigado.
+
+{appName}`;
+
 function normalizeSettings(source = {}) {
   const appName = String(source.appName || "").trim() || "Motoclube";
   const appSubtitle = String(source.appSubtitle || "").trim() || "Gestão de vendas";
@@ -22,6 +44,10 @@ function normalizeSettings(source = {}) {
     duesDefaultAmount: Number.isFinite(duesDefaultAmount) && duesDefaultAmount > 0 ? duesDefaultAmount : 0,
     language,
     brandMarkImage,
+    debtorEmailBody: String(source.debtorEmailBody || "").trim() || DEFAULT_DEBTOR_EMAIL_BODY,
+    debtorEmailSubject: String(source.debtorEmailSubject || "").trim() || DEFAULT_DEBTOR_EMAIL_SUBJECT,
+    memberWelcomeEmailBody: String(source.memberWelcomeEmailBody || "").trim() || DEFAULT_MEMBER_WELCOME_EMAIL_BODY,
+    memberWelcomeEmailSubject: String(source.memberWelcomeEmailSubject || "").trim() || DEFAULT_MEMBER_WELCOME_EMAIL_SUBJECT,
     sendMemberWelcomeEmail: String(source.sendMemberWelcomeEmail || "") === "1" || source.sendMemberWelcomeEmail === true ? 1 : 0,
     smtpFrom: String(source.smtpFrom || "").trim(),
     smtpHost: String(source.smtpHost || "").trim(),
@@ -73,6 +99,12 @@ function createAppSettingsStore({ pool }) {
     get: () => ({ ...cache }),
     hydrate,
     language: () => cache.language,
+    emailTemplates: () => ({
+      debtorEmailBody: cache.debtorEmailBody,
+      debtorEmailSubject: cache.debtorEmailSubject,
+      memberWelcomeEmailBody: cache.memberWelcomeEmailBody,
+      memberWelcomeEmailSubject: cache.memberWelcomeEmailSubject,
+    }),
     receiptPrefixBar: () => cache.receiptPrefixBar,
     receiptPrefixMerchandising: () => cache.receiptPrefixMerchandising,
     sendMemberWelcomeEmail: () => cache.sendMemberWelcomeEmail,

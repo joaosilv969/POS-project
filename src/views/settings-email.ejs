@@ -1,0 +1,147 @@
+<section class="page-header">
+  <div>
+    <p class="eyebrow">Configuração</p>
+    <h1>Email</h1>
+    <p class="text-muted">Envio de estatutos, avisos de cotas em atraso e templates editáveis.</p>
+  </div>
+  <a class="button secondary" href="/settings">Voltar</a>
+</section>
+
+<section class="settings-email-layout">
+  <div class="form-stack">
+    <section class="panel form-stack">
+      <div class="panel-header">
+        <div>
+          <h2>Configurações de envio</h2>
+          <p class="text-muted"><%= emailConfigured ? "SMTP configurado." : "SMTP ainda não configurado." %></p>
+        </div>
+        <% if (emailSettingsUnlocked) { %>
+          <form method="post" action="/settings/email/lock">
+            <button class="button ghost" type="submit">Ocultar</button>
+          </form>
+        <% } %>
+      </div>
+
+      <% if (!emailSettingsUnlocked) { %>
+        <form class="form-stack protected-settings-form" method="post" action="/settings/email/unlock">
+          <label>
+            Password de administrador
+            <input type="password" name="admin_password" autocomplete="current-password" required />
+          </label>
+          <button class="button primary" type="submit">Ver configurações de envio</button>
+        </form>
+      <% } else { %>
+        <form class="form-stack" method="post" action="/settings/email/server">
+          <div class="form-grid">
+            <label>
+              Servidor SMTP
+              <input name="smtp_host" value="<%= emailSettings ? emailSettings.smtpHost : '' %>" placeholder="smtp.exemplo.pt" />
+            </label>
+            <label>
+              Porta
+              <input type="number" name="smtp_port" min="1" max="65535" value="<%= emailSettings ? emailSettings.smtpPort : 587 %>" />
+            </label>
+          </div>
+
+          <label class="toggle-field">
+            <input type="checkbox" name="smtp_secure" <%= emailSettings && emailSettings.smtpSecure ? "checked" : "" %> />
+            Ligação segura direta (SSL/TLS)
+          </label>
+
+          <div class="form-grid">
+            <label>
+              Email de envio
+              <input type="email" name="smtp_from" value="<%= emailSettings ? emailSettings.smtpFrom : '' %>" placeholder="clube@example.com" />
+            </label>
+            <label>
+              Utilizador SMTP
+              <input name="smtp_user" value="<%= emailSettings ? emailSettings.smtpUser : '' %>" autocomplete="username" />
+            </label>
+          </div>
+
+          <label>
+            Password SMTP
+            <input type="password" name="smtp_pass" autocomplete="new-password" placeholder="<%= emailSettings && emailSettings.smtpPass ? 'Configurada - deixe vazio para manter' : '' %>" />
+          </label>
+
+          <label class="toggle-field">
+            <input type="checkbox" name="send_member_welcome_email" <%= sendMemberWelcomeEmail ? "checked" : "" %> />
+            Enviar email com estatutos a novos sócios importados por CSV
+          </label>
+
+          <button class="button primary" type="submit">Guardar configurações de envio</button>
+        </form>
+      <% } %>
+    </section>
+
+    <form class="panel form-stack" method="post" action="/settings/email/templates">
+      <div class="template-editor" data-template-editor>
+        <div class="panel-header">
+          <h2>Email com estatutos</h2>
+        </div>
+
+        <div class="variable-toolbar" aria-label="Variáveis do email com estatutos">
+          <% ['appName', 'memberName', 'memberNumber', 'memberEmail'].forEach((variable) => { %>
+            <button class="variable-chip" type="button" data-insert-variable="{<%= variable %>}" data-default-target="member_welcome_email_body">{<%= variable %>}</button>
+          <% }) %>
+        </div>
+
+        <label>
+          Assunto
+          <input name="member_welcome_email_subject" value="<%= emailTemplates ? emailTemplates.memberWelcomeEmailSubject : '' %>" />
+        </label>
+
+        <label>
+          Texto
+          <textarea name="member_welcome_email_body" rows="8"><%= emailTemplates ? emailTemplates.memberWelcomeEmailBody : '' %></textarea>
+        </label>
+      </div>
+
+      <hr />
+
+      <div class="template-editor" data-template-editor>
+        <div class="panel-header">
+          <h2>Email para sócios devedores</h2>
+        </div>
+
+        <div class="variable-toolbar" aria-label="Variáveis do email de devedores">
+          <% ['appName', 'memberName', 'memberNumber', 'memberEmail', 'year', 'expectedAmount', 'paidTotal', 'dueAmount'].forEach((variable) => { %>
+            <button class="variable-chip" type="button" data-insert-variable="{<%= variable %>}" data-default-target="debtor_email_body">{<%= variable %>}</button>
+          <% }) %>
+        </div>
+
+        <label>
+          Assunto
+          <input name="debtor_email_subject" value="<%= emailTemplates ? emailTemplates.debtorEmailSubject : '' %>" />
+        </label>
+
+        <label>
+          Texto
+          <textarea name="debtor_email_body" rows="10"><%= emailTemplates ? emailTemplates.debtorEmailBody : '' %></textarea>
+        </label>
+      </div>
+
+      <button class="button primary" type="submit">Guardar textos dos emails</button>
+    </form>
+  </div>
+
+  <aside class="panel form-stack">
+    <div class="panel-header">
+      <h2>PDF dos estatutos</h2>
+    </div>
+
+    <% if (statutesPdfFile) { %>
+      <p class="text-muted">PDF atual: <strong><%= statutesPdfFile %></strong></p>
+    <% } else { %>
+      <p class="text-muted">Ainda não existe PDF carregado para anexar aos novos sócios.</p>
+    <% } %>
+
+    <form class="form-stack" method="post" action="/settings/statutes-pdf" enctype="multipart/form-data">
+      <label>
+        PDF dos estatutos
+        <input type="file" name="statutes_pdf" accept="application/pdf,.pdf" required />
+      </label>
+      <button class="button secondary" type="submit">Atualizar PDF</button>
+    </form>
+  </aside>
+</section>

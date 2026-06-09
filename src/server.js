@@ -420,6 +420,12 @@ function emailSettingsConfigured() {
   return Boolean(settings.smtpHost && settings.smtpPort && (settings.smtpFrom || settings.smtpUser));
 }
 
+function renderEmailTemplate(template, variables) {
+  return String(template || "").replace(/\{(\w+)\}/g, (match, key) =>
+    Object.prototype.hasOwnProperty.call(variables, key) ? String(variables[key]) : match,
+  );
+}
+
 function statutesPdfAttachment() {
   const fileName = appSettings.statutesPdfFile();
   if (!fileName) {
@@ -439,8 +445,11 @@ function statutesPdfAttachment() {
   };
 }
 
-async function sendWelcomeEmailToMember(member) {
-  if (!appSettings.sendMemberWelcomeEmail()) {
+async function sendWelcomeEmailToMember(member, options = {}) {
+  const enabled =
+    Object.prototype.hasOwnProperty.call(options, "enabled") ? Boolean(options.enabled) : Boolean(appSettings.sendMemberWelcomeEmail());
+
+  if (!enabled) {
     return { sent: false, reason: "disabled" };
   }
 
@@ -452,18 +461,18 @@ async function sendWelcomeEmailToMember(member) {
   if (!attachment) {
     return { sent: false, reason: "missing-pdf" };
   }
+  const templates = appSettings.emailTemplates();
+  const variables = {
+    appName: appSettings.appName(),
+    memberEmail: member.email,
+    memberName: member.name,
+    memberNumber: member.memberNumber,
+  };
 
   await sendEmail(appSettings.smtpSettings(), {
     to: member.email,
-    subject: `Bem-vindo ao ${appSettings.appName()}`,
-    text: `Olá ${member.name},
-
-Bem-vindo ao ${appSettings.appName()}.
-
-Segue em anexo o PDF com os estatutos do motoclube.
-
-Cumprimentos,
-${appSettings.appName()}`,
+    subject: renderEmailTemplate(templates.memberWelcomeEmailSubject, variables),
+    text: renderEmailTemplate(templates.memberWelcomeEmailBody, variables),
     attachments: [attachment],
   });
 
@@ -471,23 +480,25 @@ ${appSettings.appName()}`,
 }
 
 async function sendDebtorEmail(member, year, expectedAmount) {
+  const money = createMoneyFormatter("pt-PT");
   const paidTotal = Number(member.paid_total || 0);
   const due = Math.max(0, Number(expectedAmount || 0) - paidTotal);
+  const templates = appSettings.emailTemplates();
+  const variables = {
+    appName: appSettings.appName(),
+    dueAmount: money(due),
+    expectedAmount: money(expectedAmount),
+    memberEmail: member.email,
+    memberName: member.name,
+    memberNumber: member.member_number,
+    paidTotal: money(paidTotal),
+    year,
+  };
 
   await sendEmail(appSettings.smtpSettings(), {
     to: member.email,
-    subject: `Cota em atraso - ${year}`,
-    text: `Olá ${member.name},
-
-De acordo com os nossos registos, existe um valor em falta na tua cota de ${year}.
-
-Valor anual: ${createMoneyFormatter("pt-PT")(expectedAmount)}
-Valor pago: ${createMoneyFormatter("pt-PT")(paidTotal)}
-Valor em falta: ${createMoneyFormatter("pt-PT")(due)}
-
-Obrigado.
-
-${appSettings.appName()}`,
+    subject: renderEmailTemplate(templates.debtorEmailSubject, variables),
+    text: renderEmailTemplate(templates.debtorEmailBody, variables),
   });
 }
 
@@ -940,7 +951,6 @@ app.get(
     await registerSoftwareVersion();
     const [duesYears] = await pool.execute("SELECT * FROM dues_years ORDER BY year DESC");
     const softwareVersions = await listSoftwareVersions();
-    const emailSettings = appSettings.smtpSettings();
     res.render("settings", {
       title: "Configuração",
       brandMarkImage: appSettings.brandMarkImage() || null,
@@ -950,13 +960,27 @@ app.get(
       receiptPrefixBar: appSettings.receiptPrefixBar(),
       receiptPrefixMerchandising: appSettings.receiptPrefixMerchandising(),
       duesDefaultAmount: duesDefaultAmount(),
-      emailSettings,
-      sendMemberWelcomeEmail: appSettings.sendMemberWelcomeEmail(),
       softwareVersions,
-      statutesPdfFile: appSettings.statutesPdfFile(),
       duesYears,
     });
   }),
+);
+
+app.get(
+  "/settings/email",
+  requireAdmin,
+  (req, res) => {
+    const emailSettingsUnlocked = req.session.emailSettingsUnlocked === true;
+    res.render("settings-email", {
+      title: "Email",
+      emailConfigured: emailSettingsConfigured(),
+      emailSettings: emailSettingsUnlocked ? appSettings.smtpSettings() : null,
+      emailSettingsUnlocked,
+      emailTemplates: appSettings.emailTemplates(),
+      sendMemberWelcomeEmail: appSettings.sendMemberWelcomeEmail(),
+      statutesPdfFile: appSettings.statutesPdfFile(),
+    });
+  },
 );
 
 app.post(
@@ -1046,9 +1070,44 @@ app.post(
 );
 
 app.post(
-  "/settings/email",
+  "/settings/email/unlock",
   requireAdmin,
   asyncRoute(async (req, res) => {
+    const password = String(req.body.admin_password || "");
+    const [[adminUser]] = await pool.execute("SELECT password_hash FROM users WHERE id = ? AND role = 'admin' AND active = 1", [
+      req.session.user.id,
+    ]);
+
+    if (!adminUser || !(await bcrypt.compare(password, adminUser.password_hash))) {
+      flash(req, "error", "Password de administrador inválida.");
+      return res.redirect("/settings/email");
+    }
+
+    req.session.emailSettingsUnlocked = true;
+    flash(req, "success", "Configurações de envio desbloqueadas.");
+    return res.redirect("/settings/email");
+  }),
+);
+
+app.post(
+  "/settings/email/lock",
+  requireAdmin,
+  (req, res) => {
+    req.session.emailSettingsUnlocked = false;
+    flash(req, "success", "Configurações de envio ocultadas.");
+    return res.redirect("/settings/email");
+  },
+);
+
+app.post(
+  "/settings/email/server",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    if (req.session.emailSettingsUnlocked !== true) {
+      flash(req, "error", "Confirme a password de administrador para alterar as configurações de envio.");
+      return res.redirect("/settings/email");
+    }
+
     const currentSettings = appSettings.get();
     const smtpHost = String(req.body.smtp_host || "").trim();
     const smtpPort = parseInteger(req.body.smtp_port, 587);
@@ -1058,12 +1117,12 @@ app.post(
 
     if (smtpHost && (!smtpPort || smtpPort < 1 || smtpPort > 65535)) {
       flash(req, "error", "Indique uma porta SMTP válida.");
-      return res.redirect("/settings");
+      return res.redirect("/settings/email");
     }
 
     if (smtpFrom && !isValidEmail(smtpFrom)) {
       flash(req, "error", "Indique um email de envio válido.");
-      return res.redirect("/settings");
+      return res.redirect("/settings/email");
     }
 
     await appSettings.update({
@@ -1077,7 +1136,23 @@ app.post(
     });
 
     flash(req, "success", "Configuração de email atualizada.");
-    return res.redirect("/settings");
+    return res.redirect("/settings/email");
+  }),
+);
+
+app.post(
+  "/settings/email/templates",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    await appSettings.update({
+      debtorEmailBody: String(req.body.debtor_email_body || "").trim(),
+      debtorEmailSubject: String(req.body.debtor_email_subject || "").trim(),
+      memberWelcomeEmailBody: String(req.body.member_welcome_email_body || "").trim(),
+      memberWelcomeEmailSubject: String(req.body.member_welcome_email_subject || "").trim(),
+    });
+
+    flash(req, "success", "Textos dos emails atualizados.");
+    return res.redirect("/settings/email");
   }),
 );
 
@@ -1088,7 +1163,7 @@ app.post(
   asyncRoute(async (req, res) => {
     if (!req.file) {
       flash(req, "error", "Selecione o PDF dos estatutos.");
-      return res.redirect("/settings");
+      return res.redirect("/settings/email");
     }
 
     const currentFile = appSettings.statutesPdfFile();
@@ -1098,7 +1173,7 @@ app.post(
 
     await appSettings.update({ statutesPdfFile: req.file.filename });
     flash(req, "success", "PDF dos estatutos atualizado.");
-    return res.redirect("/settings");
+    return res.redirect("/settings/email");
   }),
 );
 
@@ -3000,6 +3075,7 @@ app.post(
     const memberNumber = String(req.body.member_number || "").trim();
     const name = String(req.body.name || "").trim();
     const email = String(req.body.email || "").trim().toLowerCase();
+    const sendWelcomeEmail = Boolean(req.body.send_welcome_email);
 
     if (!memberNumber || !name || !isValidEmail(email)) {
       flash(req, "error", "Número de sócio, nome e email válido são obrigatórios.");
@@ -3016,7 +3092,7 @@ app.post(
     try {
       await pool.execute("INSERT INTO members (member_number, name, email, active) VALUES (?, ?, ?, 1)", [memberNumber, name, email]);
       try {
-        const welcomeResult = await sendWelcomeEmailToMember({ memberNumber, name, email });
+        const welcomeResult = await sendWelcomeEmailToMember({ memberNumber, name, email }, { enabled: sendWelcomeEmail });
         if (welcomeResult.sent) {
           flash(req, "success", "Sócio criado com sucesso. Email de boas-vindas enviado.");
         } else if (welcomeResult.reason === "missing-email-settings") {
@@ -3059,6 +3135,7 @@ app.post(
     let created = 0;
     let updated = 0;
     let skipped = 0;
+    const createdMembers = [];
     const connection = await pool.getConnection();
 
     try {
@@ -3089,26 +3166,47 @@ app.post(
             row.email,
             row.active,
           ]);
+          createdMembers.push({ memberNumber: row.memberNumber, name: row.name, email: row.email });
           created += 1;
         }
       }
 
       await connection.commit();
-      flash(
-        req,
-        "success",
-        req.t("Importação concluída: {created} criados, {updated} atualizados, {skipped} ignorados.", {
-          created,
-          updated,
-          skipped,
-        }),
-      );
     } catch (error) {
       await connection.rollback();
       throw error;
     } finally {
       connection.release();
     }
+
+    let welcomeSent = 0;
+    let welcomeFailed = 0;
+    if (appSettings.sendMemberWelcomeEmail() && createdMembers.length > 0) {
+      for (const member of createdMembers) {
+        try {
+          const welcomeResult = await sendWelcomeEmailToMember(member);
+          if (welcomeResult.sent) {
+            welcomeSent += 1;
+          } else {
+            welcomeFailed += 1;
+          }
+        } catch {
+          welcomeFailed += 1;
+        }
+      }
+    }
+
+    const welcomeSummary =
+      welcomeSent || welcomeFailed ? ` Emails boas-vindas: ${welcomeSent} enviados, ${welcomeFailed} falhados.` : "";
+    flash(
+      req,
+      welcomeFailed > 0 ? "error" : "success",
+      `${req.t("Importação concluída: {created} criados, {updated} atualizados, {skipped} ignorados.", {
+        created,
+        updated,
+        skipped,
+      })}${welcomeSummary}`,
+    );
 
     return res.redirect("/members");
   }),

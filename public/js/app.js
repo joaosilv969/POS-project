@@ -66,6 +66,40 @@ document.querySelectorAll("[data-print]").forEach((button) => {
   button.addEventListener("click", () => window.print());
 });
 
+document.querySelectorAll("[data-template-editor]").forEach((editor) => {
+  editor.addEventListener("focusin", (event) => {
+    const target = event.target;
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+      editor.dataset.activeTarget = target.name;
+    }
+  });
+});
+
+document.querySelectorAll("[data-insert-variable]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const editor = button.closest("[data-template-editor]");
+    if (!editor) {
+      return;
+    }
+
+    const targetName = editor.dataset.activeTarget || button.dataset.defaultTarget;
+    const target = targetName ? editor.querySelector(`[name="${targetName}"]`) : null;
+    const variable = button.dataset.insertVariable || "";
+
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) || !variable) {
+      return;
+    }
+
+    const start = target.selectionStart ?? target.value.length;
+    const end = target.selectionEnd ?? target.value.length;
+    target.value = `${target.value.slice(0, start)}${variable}${target.value.slice(end)}`;
+    const nextPosition = start + variable.length;
+    target.focus();
+    target.setSelectionRange(nextPosition, nextPosition);
+    editor.dataset.activeTarget = target.name;
+  });
+});
+
 const receipt = document.querySelector("[data-receipt-next-sale]");
 if (receipt) {
   const nextSalePath = receipt.dataset.receiptNextSale;

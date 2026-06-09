@@ -73,12 +73,14 @@ img {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -88,12 +90,19 @@ select {
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
-input::placeholder {
+textarea {
+  min-height: 9rem;
+  resize: vertical;
+}
+
+input::placeholder,
+textarea::placeholder {
   color: color-mix(in srgb, var(--muted) 78%, transparent);
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: none;
   border-color: color-mix(in srgb, var(--primary) 55%, var(--line));
   box-shadow: 0 0 0 3px var(--focus-ring);
@@ -102,6 +111,7 @@ select:focus {
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
+textarea:focus-visible,
 summary:focus-visible,
 a:focus-visible {
   outline: 3px solid var(--focus-ring);
@@ -639,6 +649,53 @@ body[data-theme="dark"] .button.danger {
 .button.large {
   min-height: 56px;
   font-size: 1.05rem;
+}
+
+.settings-email-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 1rem;
+  align-items: start;
+}
+
+.protected-settings-form {
+  border: 1px dashed color-mix(in srgb, var(--primary) 35%, var(--line));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+  padding: 1rem;
+}
+
+.template-editor {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.variable-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.variable-chip {
+  width: auto;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--text);
+  cursor: pointer;
+  padding: 0.38rem 0.62rem;
+  font-size: 0.82rem;
+  font-weight: 850;
+  transition: transform 90ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.variable-chip:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 20%, var(--surface));
+}
+
+.variable-chip:active {
+  transform: translateY(1px);
 }
 
 .button-row,
@@ -1532,6 +1589,7 @@ body[data-theme="dark"] .qty-button {
   .two-column,
   .report-grid,
   .analytics-grid,
+  .settings-email-layout,
   .stats-grid {
     grid-template-columns: 1fr;
   }
