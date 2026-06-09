@@ -36,7 +36,6 @@
           data-product-price="<%= product.price %>"
           data-product-stock="<%= product.stock %>"
           data-product-category="<%= product.category_id %>"
-          <%= product.stock <= 0 ? "disabled" : "" %>
         >
           <span class="tile-image">
             <% if (product.image_file) { %>

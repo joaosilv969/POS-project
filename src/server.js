@@ -1037,7 +1037,7 @@ app.post(
   asyncRoute(async (req, res) => {
     const product = buildProductFromRequest(req, "bar");
 
-    if (!product.categoryId || !product.name || !product.referenceCode || product.price < 0 || product.stock < 0) {
+    if (!product.categoryId || !product.name || !product.referenceCode || product.price < 0) {
       if (req.file) {
         deleteUpload(req.file.filename);
       }
@@ -1068,12 +1068,19 @@ app.post(
       await saveProductImage(result.insertId, req.file);
     }
 
-    if (product.stock > 0) {
+    if (product.stock !== 0) {
       await pool.execute(
         `INSERT INTO stock_movements
           (product_id, user_id, type, quantity_change, quantity_before, quantity_after, reason)
-         VALUES (?, ?, 'entry', ?, 0, ?, ?)`,
-        [result.insertId, req.session.user.id, product.stock, product.stock, "Stock inicial"],
+         VALUES (?, ?, ?, ?, 0, ?, ?)`,
+        [
+          result.insertId,
+          req.session.user.id,
+          product.stock > 0 ? "entry" : "manual_adjustment",
+          product.stock,
+          product.stock,
+          "Stock inicial",
+        ],
       );
     }
 
@@ -1104,7 +1111,7 @@ app.post(
   asyncRoute(async (req, res) => {
     const product = buildProductFromRequest(req, "merchandising");
 
-    if (!product.categoryId || !product.name || !product.referenceCode || product.price < 0 || product.stock < 0 || !product.size) {
+    if (!product.categoryId || !product.name || !product.referenceCode || product.price < 0 || !product.size) {
       if (req.file) {
         deleteUpload(req.file.filename);
       }
@@ -1135,12 +1142,19 @@ app.post(
       await saveProductImage(result.insertId, req.file);
     }
 
-    if (product.stock > 0) {
+    if (product.stock !== 0) {
       await pool.execute(
         `INSERT INTO stock_movements
           (product_id, user_id, type, quantity_change, quantity_before, quantity_after, reason)
-         VALUES (?, ?, 'entry', ?, 0, ?, ?)`,
-        [result.insertId, req.session.user.id, product.stock, product.stock, "Stock inicial"],
+         VALUES (?, ?, ?, ?, 0, ?, ?)`,
+        [
+          result.insertId,
+          req.session.user.id,
+          product.stock > 0 ? "entry" : "manual_adjustment",
+          product.stock,
+          product.stock,
+          "Stock inicial",
+        ],
       );
     }
 
@@ -1201,7 +1215,6 @@ app.post(
       !product.name ||
       !product.referenceCode ||
       product.price < 0 ||
-      product.stock < 0 ||
       (product.productType === "merchandising" && !product.size)
     ) {
       if (req.file) {
@@ -1505,10 +1518,6 @@ async function handleStockMovement(req, res, options = {}) {
 
     const quantityBefore = product.stock;
     const quantityAfter = quantityBefore + delta;
-
-    if (quantityAfter < 0) {
-      throw new Error("O movimento deixaria o stock negativo.");
-    }
 
     await connection.execute("UPDATE products SET stock = ? WHERE id = ?", [quantityAfter, productId]);
     await connection.execute(
@@ -1818,10 +1827,6 @@ app.post(
       );
       const nextQuantity = (existingItem ? existingItem.quantity : 0) + quantity;
 
-      if (nextQuantity > product.stock) {
-        throw new Error(req.t("Stock insuficiente para {name}. Disponível: {stock}.", { name: product.name, stock: product.stock }));
-      }
-
       if (existingItem) {
         await connection.execute("UPDATE table_order_items SET quantity = ? WHERE id = ?", [nextQuantity, existingItem.id]);
       } else {
@@ -1878,15 +1883,6 @@ app.post(
       if (quantity <= 0) {
         await connection.execute("DELETE FROM table_order_items WHERE id = ?", [itemId]);
       } else {
-        if (item.stock !== null && quantity > item.stock) {
-          throw new Error(
-            req.t("Stock insuficiente para {name}. Disponível: {stock}.", {
-              name: item.product_name,
-              stock: item.stock,
-            }),
-          );
-        }
-
         await connection.execute("UPDATE table_order_items SET quantity = ? WHERE id = ?", [quantity, itemId]);
       }
 
@@ -1985,10 +1981,6 @@ app.post(
 
         if (!product) {
           throw new Error(req.t("Produto removido: {name}.", { name: item.product_name }));
-        }
-
-        if (product.stock < item.quantity) {
-          throw new Error(req.t("Stock insuficiente para {name}. Disponível: {stock}.", { name: item.product_name, stock: product.stock }));
         }
 
         const lineTotal = Number((Number(item.unit_price) * item.quantity).toFixed(2));
@@ -2163,10 +2155,6 @@ app.post(
           throw new Error(req.t("O produto {name} não pode ser vendido nesta vista de merchandising.", { name: product.name }));
         }
 
-        if (product.stock < quantity) {
-          throw new Error(req.t("Stock insuficiente para {name}. Disponível: {stock}.", { name: product.name, stock: product.stock }));
-        }
-
         const lineTotal = Number((Number(product.price) * quantity).toFixed(2));
         total = Number((total + lineTotal).toFixed(2));
         saleItems.push({ product, quantity, lineTotal });
@@ -2271,10 +2259,6 @@ app.post(
 
         if (product.product_type !== "bar") {
           throw new Error(req.t("O produto {name} não pode ser vendido no ponto de venda.", { name: product.name }));
-        }
-
-        if (product.stock < quantity) {
-          throw new Error(req.t("Stock insuficiente para {name}. Disponível: {stock}.", { name: product.name, stock: product.stock }));
         }
 
         const lineTotal = Number((Number(product.price) * quantity).toFixed(2));

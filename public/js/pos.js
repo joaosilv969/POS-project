@@ -244,17 +244,7 @@
     const existing = cart.get(id);
     const stock = Number(tile.dataset.productStock);
 
-    if (stock <= 0) {
-      showError(messages.outOfStock);
-      return;
-    }
-
     if (existing) {
-      if (existing.quantity >= existing.stock) {
-        showError(messages.increaseStockError);
-        return;
-      }
-
       existing.quantity += 1;
     } else {
       cart.set(id, {
@@ -280,12 +270,11 @@
     const nextQuantity = item.quantity + delta;
     if (nextQuantity <= 0) {
       cart.delete(id);
-    } else if (nextQuantity <= item.stock) {
-      item.quantity = nextQuantity;
     } else {
-      showError(messages.quantityStockError);
+      item.quantity = nextQuantity;
     }
 
+    showError("");
     renderCart();
     focusFinishButtonWhenReady();
   }
