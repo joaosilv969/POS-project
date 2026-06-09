@@ -233,6 +233,14 @@ async function seedAppSettingsFromLegacyConfig(connection) {
     "duesDefaultAmount",
     "language",
     "brandMarkImage",
+    "sendMemberWelcomeEmail",
+    "smtpFrom",
+    "smtpHost",
+    "smtpPass",
+    "smtpPort",
+    "smtpSecure",
+    "smtpUser",
+    "statutesPdfFile",
   ];
 
   for (const key of allowedKeys) {

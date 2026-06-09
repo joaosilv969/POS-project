@@ -84,6 +84,7 @@ function detectHeader(columns) {
   const aliases = {
     memberNumber: new Set(["membernumber", "memberno", "numero", "numerosocio", "numsocio", "nrsocio"]),
     name: new Set(["name", "nome", "nomesocio", "membername", "socio"]),
+    email: new Set(["email", "mail", "correio", "correioeletronico", "emaildosocio"]),
     active: new Set(["active", "ativo", "activa", "estado", "status"]),
   };
 
@@ -97,6 +98,10 @@ function detectHeader(columns) {
     }
     if (!mapping.name && aliases.name.has(normalized)) {
       mapping.name = index;
+      return;
+    }
+    if (!mapping.email && aliases.email.has(normalized)) {
+      mapping.email = index;
       return;
     }
     if (!mapping.active && aliases.active.has(normalized)) {
@@ -142,7 +147,8 @@ function parseMembersCsv(input) {
     rows.push({
       memberNumber: String(headerMap ? columns[headerMap.memberNumber] || "" : columns[0] || "").trim(),
       name: String(headerMap ? columns[headerMap.name] || "" : columns[1] || "").trim(),
-      active: parseActiveValue(headerMap && headerMap.active !== undefined ? columns[headerMap.active] : columns[2]),
+      email: String(headerMap && headerMap.email !== undefined ? columns[headerMap.email] || "" : columns[2] || "").trim().toLowerCase(),
+      active: parseActiveValue(headerMap && headerMap.active !== undefined ? columns[headerMap.active] : columns[3]),
     });
   }
 

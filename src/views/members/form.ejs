@@ -17,6 +17,11 @@
     <input name="name" required maxlength="120" value="<%= member ? member.name : '' %>" />
   </label>
 
+  <label>
+    Email
+    <input type="email" name="email" required maxlength="180" value="<%= member ? member.email : '' %>" />
+  </label>
+
   <% if (member) { %>
     <label class="toggle-field">
       <input type="checkbox" name="active" <%= member.active ? "checked" : "" %> />
@@ -29,4 +34,3 @@
     <a class="button ghost" href="/members">Cancelar</a>
   </div>
 </form>
-

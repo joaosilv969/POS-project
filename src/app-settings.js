@@ -10,6 +10,7 @@ function normalizeSettings(source = {}) {
   const duesDefaultAmount = Number(source.duesDefaultAmount);
   const language = String(source.language || "").trim() || "pt-PT";
   const brandMarkImage = String(source.brandMarkImage || "").trim() || null;
+  const smtpPort = Number.parseInt(source.smtpPort, 10);
 
   return {
     appName,
@@ -21,6 +22,14 @@ function normalizeSettings(source = {}) {
     duesDefaultAmount: Number.isFinite(duesDefaultAmount) && duesDefaultAmount > 0 ? duesDefaultAmount : 0,
     language,
     brandMarkImage,
+    sendMemberWelcomeEmail: String(source.sendMemberWelcomeEmail || "") === "1" || source.sendMemberWelcomeEmail === true ? 1 : 0,
+    smtpFrom: String(source.smtpFrom || "").trim(),
+    smtpHost: String(source.smtpHost || "").trim(),
+    smtpPass: String(source.smtpPass || ""),
+    smtpPort: Number.isFinite(smtpPort) && smtpPort > 0 ? smtpPort : 587,
+    smtpSecure: String(source.smtpSecure || "") === "1" || source.smtpSecure === true ? 1 : 0,
+    smtpUser: String(source.smtpUser || "").trim(),
+    statutesPdfFile: String(source.statutesPdfFile || "").trim() || null,
   };
 }
 
@@ -66,6 +75,16 @@ function createAppSettingsStore({ pool }) {
     language: () => cache.language,
     receiptPrefixBar: () => cache.receiptPrefixBar,
     receiptPrefixMerchandising: () => cache.receiptPrefixMerchandising,
+    sendMemberWelcomeEmail: () => cache.sendMemberWelcomeEmail,
+    smtpSettings: () => ({
+      smtpFrom: cache.smtpFrom,
+      smtpHost: cache.smtpHost,
+      smtpPass: cache.smtpPass,
+      smtpPort: cache.smtpPort,
+      smtpSecure: cache.smtpSecure,
+      smtpUser: cache.smtpUser,
+    }),
+    statutesPdfFile: () => cache.statutesPdfFile,
     update,
   };
 }

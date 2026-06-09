@@ -19,6 +19,17 @@
   <a class="button ghost" href="/dues">Limpar</a>
 </form>
 
+<% if (currentUser && currentUser.role === 'admin') { %>
+  <form class="panel form-stack" method="post" action="/dues/email-debtors" data-confirm="Enviar email aos sócios com cotas em falta neste ano?">
+    <div class="panel-header">
+      <h2>Email a sócios devedores</h2>
+    </div>
+    <input type="hidden" name="year" value="<%= year %>" />
+    <p class="text-muted">Envia um aviso para os sócios ativos com valor em falta no ano selecionado.</p>
+    <button class="button primary" type="submit">Enviar emails de aviso</button>
+  </form>
+<% } %>
+
 <section class="panel">
   <div class="table-wrap">
     <table>

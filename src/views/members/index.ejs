@@ -17,7 +17,7 @@
       <h2>Importar sócios por CSV</h2>
       <a class="button ghost" href="/members/import/example.csv">Exemplo</a>
     </div>
-    <p class="text-muted">Aceita ficheiros CSV com cabeçalho como <strong>member_number,name,active</strong> ou sem cabeçalho. Se o nº de sócio já existir, o registo é atualizado.</p>
+    <p class="text-muted">Aceita ficheiros CSV com cabeçalho como <strong>member_number,name,email,active</strong> ou sem cabeçalho. Se o nº de sócio já existir, o registo é atualizado.</p>
     <label>
       Ficheiro CSV
       <input type="file" name="csv_file" accept=".csv,text/csv,.txt" required />
@@ -35,6 +35,7 @@
         <tr>
           <th>Nº Sócio</th>
           <th>Nome</th>
+          <th>Email</th>
           <th>Estado</th>
           <th></th>
         </tr>
@@ -44,6 +45,7 @@
           <tr>
             <td><%= member.member_number %></td>
             <td><%= member.name %></td>
+            <td><%= member.email || '---' %></td>
             <td><span class="<%= member.active ? 'pill success' : 'pill muted' %>"><%= member.active ? "Ativo" : "Inativo" %></span></td>
             <td class="actions-cell">
               <% if (currentUser && currentUser.role === 'admin') { %>
@@ -58,7 +60,7 @@
           </tr>
         <% }) %>
         <% if (members.length === 0) { %>
-          <tr><td colspan="4">Sem sócios registados.</td></tr>
+          <tr><td colspan="5">Sem sócios registados.</td></tr>
         <% } %>
       </tbody>
     </table>

@@ -14,6 +14,7 @@ const packageInfo = require("../package.json");
 const pool = require("./db");
 const { createAppSettingsStore } = require("./app-settings");
 const asyncRoute = require("./lib/async-route");
+const { sendEmail } = require("./email-service");
 const flash = require("./lib/flash");
 const { parseMembersCsv } = require("./members-csv");
 const { currentYear, parseInteger, parseNumber } = require("./lib/parsing");
@@ -47,6 +48,22 @@ const memberCsvUpload = multer({
     const extension = path.extname(String(file.originalname || "")).toLowerCase();
     if (extension !== ".csv" && extension !== ".txt") {
       return cb(new Error(req.t ? req.t("O ficheiro deve ser um CSV.") : "O ficheiro deve ser um CSV."));
+    }
+    return cb(null, true);
+  },
+});
+const statutesPdfUpload = multer({
+  storage: multer.diskStorage({
+    destination: uploadDir,
+    filename: (req, file, cb) => {
+      cb(null, `estatutos-${Date.now()}-${Math.round(Math.random() * 1e9)}.pdf`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const extension = path.extname(String(file.originalname || "")).toLowerCase();
+    if (extension !== ".pdf" || file.mimetype !== "application/pdf") {
+      return cb(new Error(req.t ? req.t("O ficheiro deve ser um PDF.") : "O ficheiro deve ser um PDF."));
     }
     return cb(null, true);
   },
@@ -380,6 +397,97 @@ function uploadMemberCsv(req, res, next) {
     }
 
     return next();
+  });
+}
+
+function uploadStatutesPdf(req, res, next) {
+  statutesPdfUpload.single("statutes_pdf")(req, res, (error) => {
+    if (error) {
+      flash(req, "error", error.message);
+      return res.redirect("/settings");
+    }
+
+    return next();
+  });
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+}
+
+function emailSettingsConfigured() {
+  const settings = appSettings.smtpSettings();
+  return Boolean(settings.smtpHost && settings.smtpPort && (settings.smtpFrom || settings.smtpUser));
+}
+
+function statutesPdfAttachment() {
+  const fileName = appSettings.statutesPdfFile();
+  if (!fileName) {
+    return null;
+  }
+
+  const safeName = path.basename(fileName);
+  const filePath = path.join(uploadDir, safeName);
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+
+  return {
+    filename: "estatutos-motoclube.pdf",
+    contentType: "application/pdf",
+    content: fs.readFileSync(filePath),
+  };
+}
+
+async function sendWelcomeEmailToMember(member) {
+  if (!appSettings.sendMemberWelcomeEmail()) {
+    return { sent: false, reason: "disabled" };
+  }
+
+  if (!emailSettingsConfigured()) {
+    return { sent: false, reason: "missing-email-settings" };
+  }
+
+  const attachment = statutesPdfAttachment();
+  if (!attachment) {
+    return { sent: false, reason: "missing-pdf" };
+  }
+
+  await sendEmail(appSettings.smtpSettings(), {
+    to: member.email,
+    subject: `Bem-vindo ao ${appSettings.appName()}`,
+    text: `Olá ${member.name},
+
+Bem-vindo ao ${appSettings.appName()}.
+
+Segue em anexo o PDF com os estatutos do motoclube.
+
+Cumprimentos,
+${appSettings.appName()}`,
+    attachments: [attachment],
+  });
+
+  return { sent: true };
+}
+
+async function sendDebtorEmail(member, year, expectedAmount) {
+  const paidTotal = Number(member.paid_total || 0);
+  const due = Math.max(0, Number(expectedAmount || 0) - paidTotal);
+
+  await sendEmail(appSettings.smtpSettings(), {
+    to: member.email,
+    subject: `Cota em atraso - ${year}`,
+    text: `Olá ${member.name},
+
+De acordo com os nossos registos, existe um valor em falta na tua cota de ${year}.
+
+Valor anual: ${createMoneyFormatter("pt-PT")(expectedAmount)}
+Valor pago: ${createMoneyFormatter("pt-PT")(paidTotal)}
+Valor em falta: ${createMoneyFormatter("pt-PT")(due)}
+
+Obrigado.
+
+${appSettings.appName()}`,
   });
 }
 
@@ -832,6 +940,7 @@ app.get(
     await registerSoftwareVersion();
     const [duesYears] = await pool.execute("SELECT * FROM dues_years ORDER BY year DESC");
     const softwareVersions = await listSoftwareVersions();
+    const emailSettings = appSettings.smtpSettings();
     res.render("settings", {
       title: "Configuração",
       brandMarkImage: appSettings.brandMarkImage() || null,
@@ -841,7 +950,10 @@ app.get(
       receiptPrefixBar: appSettings.receiptPrefixBar(),
       receiptPrefixMerchandising: appSettings.receiptPrefixMerchandising(),
       duesDefaultAmount: duesDefaultAmount(),
+      emailSettings,
+      sendMemberWelcomeEmail: appSettings.sendMemberWelcomeEmail(),
       softwareVersions,
+      statutesPdfFile: appSettings.statutesPdfFile(),
       duesYears,
     });
   }),
@@ -929,6 +1041,63 @@ app.post(
 
     await appSettings.update({ brandMarkImage: req.file.filename });
     flash(req, "success", "Logótipo atualizado com sucesso.");
+    return res.redirect("/settings");
+  }),
+);
+
+app.post(
+  "/settings/email",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    const currentSettings = appSettings.get();
+    const smtpHost = String(req.body.smtp_host || "").trim();
+    const smtpPort = parseInteger(req.body.smtp_port, 587);
+    const smtpFrom = String(req.body.smtp_from || "").trim().toLowerCase();
+    const smtpUser = String(req.body.smtp_user || "").trim();
+    const smtpPass = String(req.body.smtp_pass || "");
+
+    if (smtpHost && (!smtpPort || smtpPort < 1 || smtpPort > 65535)) {
+      flash(req, "error", "Indique uma porta SMTP válida.");
+      return res.redirect("/settings");
+    }
+
+    if (smtpFrom && !isValidEmail(smtpFrom)) {
+      flash(req, "error", "Indique um email de envio válido.");
+      return res.redirect("/settings");
+    }
+
+    await appSettings.update({
+      sendMemberWelcomeEmail: req.body.send_member_welcome_email ? 1 : 0,
+      smtpFrom,
+      smtpHost,
+      smtpPass: smtpPass || currentSettings.smtpPass || "",
+      smtpPort,
+      smtpSecure: req.body.smtp_secure ? 1 : 0,
+      smtpUser,
+    });
+
+    flash(req, "success", "Configuração de email atualizada.");
+    return res.redirect("/settings");
+  }),
+);
+
+app.post(
+  "/settings/statutes-pdf",
+  requireAdmin,
+  uploadStatutesPdf,
+  asyncRoute(async (req, res) => {
+    if (!req.file) {
+      flash(req, "error", "Selecione o PDF dos estatutos.");
+      return res.redirect("/settings");
+    }
+
+    const currentFile = appSettings.statutesPdfFile();
+    if (currentFile) {
+      deleteUpload(currentFile);
+    }
+
+    await appSettings.update({ statutesPdfFile: req.file.filename });
+    flash(req, "success", "PDF dos estatutos atualizado.");
     return res.redirect("/settings");
   }),
 );
@@ -2804,10 +2973,10 @@ app.get(
   (req, res) => {
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", 'attachment; filename="socios-exemplo.csv"');
-    return res.send(`member_number,name,active
-1001,Ana Silva,1
-1002,Bruno Costa,1
-1003,Socio Inativo,0
+    return res.send(`member_number,name,email,active
+1001,Ana Silva,ana@example.com,1
+1002,Bruno Costa,bruno@example.com,1
+1003,Socio Inativo,inativo@example.com,0
 `);
   },
 );
@@ -2830,9 +2999,10 @@ app.post(
   asyncRoute(async (req, res) => {
     const memberNumber = String(req.body.member_number || "").trim();
     const name = String(req.body.name || "").trim();
+    const email = String(req.body.email || "").trim().toLowerCase();
 
-    if (!memberNumber || !name) {
-      flash(req, "error", "Número de sócio e nome são obrigatórios.");
+    if (!memberNumber || !name || !isValidEmail(email)) {
+      flash(req, "error", "Número de sócio, nome e email válido são obrigatórios.");
       return res.redirect("/members/new");
     }
 
@@ -2844,8 +3014,21 @@ app.post(
     }
 
     try {
-      await pool.execute("INSERT INTO members (member_number, name, active) VALUES (?, ?, 1)", [memberNumber, name]);
-      flash(req, "success", "Sócio criado com sucesso.");
+      await pool.execute("INSERT INTO members (member_number, name, email, active) VALUES (?, ?, ?, 1)", [memberNumber, name, email]);
+      try {
+        const welcomeResult = await sendWelcomeEmailToMember({ memberNumber, name, email });
+        if (welcomeResult.sent) {
+          flash(req, "success", "Sócio criado com sucesso. Email de boas-vindas enviado.");
+        } else if (welcomeResult.reason === "missing-email-settings") {
+          flash(req, "error", "Sócio criado, mas falta configurar o email de envio.");
+        } else if (welcomeResult.reason === "missing-pdf") {
+          flash(req, "error", "Sócio criado, mas falta carregar o PDF dos estatutos.");
+        } else {
+          flash(req, "success", "Sócio criado com sucesso.");
+        }
+      } catch (emailError) {
+        flash(req, "error", `Sócio criado, mas o email de boas-vindas falhou: ${emailError.message}`);
+      }
     } catch (error) {
       if (error && error.code === "ER_DUP_ENTRY") {
         flash(req, "error", "Já existe um sócio com este número.");
@@ -2882,7 +3065,7 @@ app.post(
       await connection.beginTransaction();
 
       for (const row of parsedRows) {
-        if (!row.memberNumber || !row.name) {
+        if (!row.memberNumber || !row.name || !isValidEmail(row.email)) {
           skipped += 1;
           continue;
         }
@@ -2892,16 +3075,18 @@ app.post(
         ]);
 
         if (existingMember) {
-          await connection.execute("UPDATE members SET name = ?, active = ? WHERE id = ?", [
+          await connection.execute("UPDATE members SET name = ?, email = ?, active = ? WHERE id = ?", [
             row.name,
+            row.email,
             row.active,
             existingMember.id,
           ]);
           updated += 1;
         } else {
-          await connection.execute("INSERT INTO members (member_number, name, active) VALUES (?, ?, ?)", [
+          await connection.execute("INSERT INTO members (member_number, name, email, active) VALUES (?, ?, ?, ?)", [
             row.memberNumber,
             row.name,
+            row.email,
             row.active,
           ]);
           created += 1;
@@ -2956,10 +3141,11 @@ app.post(
     const memberId = parseInteger(req.params.id);
     const memberNumber = String(req.body.member_number || "").trim();
     const name = String(req.body.name || "").trim();
+    const email = String(req.body.email || "").trim().toLowerCase();
     const active = req.body.active ? 1 : 0;
 
-    if (!memberNumber || !name) {
-      flash(req, "error", "Número de sócio e nome são obrigatórios.");
+    if (!memberNumber || !name || !isValidEmail(email)) {
+      flash(req, "error", "Número de sócio, nome e email válido são obrigatórios.");
       return res.redirect(`/members/${memberId}/edit`);
     }
 
@@ -2970,9 +3156,10 @@ app.post(
       return res.redirect(`/members/${memberId}/edit`);
     }
 
-    await pool.execute("UPDATE members SET member_number = ?, name = ?, active = ? WHERE id = ?", [
+    await pool.execute("UPDATE members SET member_number = ?, name = ?, email = ?, active = ? WHERE id = ?", [
       memberNumber,
       name,
+      email,
       active,
       memberId,
     ]);
@@ -3027,6 +3214,59 @@ app.get(
       expectedAmount,
       members,
     });
+  }),
+);
+
+app.post(
+  "/dues/email-debtors",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    const year = parseInteger(req.body.year, currentYear());
+    const expectedAmount = await duesAmountForYear(year);
+
+    if (!emailSettingsConfigured()) {
+      flash(req, "error", "Configure o email de envio antes de enviar avisos.");
+      return res.redirect(`/dues?year=${year}`);
+    }
+
+    if (!expectedAmount || expectedAmount <= 0) {
+      flash(req, "error", "Defina o valor da cota antes de enviar avisos.");
+      return res.redirect(`/dues?year=${year}`);
+    }
+
+    const [members] = await pool.execute(
+      `SELECT
+         m.id, m.member_number, m.name, m.email,
+         (SELECT COALESCE(SUM(mdp.amount), 0)
+          FROM member_dues_payments mdp
+          WHERE mdp.member_id = m.id AND mdp.year = ? AND mdp.status = 'paid') AS paid_total
+       FROM members m
+       WHERE m.active = 1
+       ORDER BY m.name ASC`,
+      [year],
+    );
+
+    let sent = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (const member of members) {
+      const due = Math.max(0, Number(expectedAmount || 0) - Number(member.paid_total || 0));
+      if (due <= 0 || !isValidEmail(member.email)) {
+        skipped += 1;
+        continue;
+      }
+
+      try {
+        await sendDebtorEmail(member, year, expectedAmount);
+        sent += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+
+    flash(req, failed > 0 ? "error" : "success", `Emails de devedores: ${sent} enviados, ${skipped} ignorados, ${failed} falhados.`);
+    return res.redirect(`/dues?year=${year}`);
   }),
 );
 
