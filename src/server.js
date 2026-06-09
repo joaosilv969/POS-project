@@ -9,11 +9,13 @@ const expressLayouts = require("express-ejs-layouts");
 const session = require("express-session");
 const createMySQLSessionStore = require("express-mysql-session");
 const helmet = require("helmet");
+const multer = require("multer");
 const packageInfo = require("../package.json");
 const pool = require("./db");
 const { createAppSettingsStore } = require("./app-settings");
 const asyncRoute = require("./lib/async-route");
 const flash = require("./lib/flash");
+const { parseMembersCsv } = require("./members-csv");
 const { currentYear, parseInteger, parseNumber } = require("./lib/parsing");
 const { requireAdmin, requireAuth } = require("./middleware/auth");
 const { createPaymentMethodService } = require("./services/payment-methods");
@@ -38,6 +40,17 @@ const port = Number(process.env.APP_PORT || 3000);
 const assetVersion = process.env.ASSET_VERSION || String(Date.now());
 
 fs.mkdirSync(uploadDir, { recursive: true });
+const memberCsvUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const extension = path.extname(String(file.originalname || "")).toLowerCase();
+    if (extension !== ".csv" && extension !== ".txt") {
+      return cb(new Error(req.t ? req.t("O ficheiro deve ser um CSV.") : "O ficheiro deve ser um CSV."));
+    }
+    return cb(null, true);
+  },
+});
 
 const appSettings = createAppSettingsStore({ pool });
 const paymentMethods = createPaymentMethodService({ pool });
@@ -358,6 +371,17 @@ const { deleteUpload, removeProductImages, saveProductImage, uploadProductImage 
   pool,
   uploadDir,
 });
+
+function uploadMemberCsv(req, res, next) {
+  memberCsvUpload.single("csv_file")(req, res, (error) => {
+    if (error) {
+      flash(req, "error", error.message);
+      return res.redirect("/members");
+    }
+
+    return next();
+  });
+}
 
 async function getActiveCategories(scope = "bar") {
   const normalizedScope = scope === "merchandising" ? "merchandising" : "bar";
@@ -2775,6 +2799,20 @@ app.get(
 );
 
 app.get(
+  "/members/import/example.csv",
+  requireAuth,
+  (req, res) => {
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="socios-exemplo.csv"');
+    return res.send(`member_number,name,active
+1001,Ana Silva,1
+1002,Bruno Costa,1
+1003,Socio Inativo,0
+`);
+  },
+);
+
+app.get(
   "/members/new",
   requireAuth,
   (req, res) => {
@@ -2815,6 +2853,78 @@ app.post(
       }
       throw error;
     }
+    return res.redirect("/members");
+  }),
+);
+
+app.post(
+  "/members/import",
+  requireAdmin,
+  uploadMemberCsv,
+  asyncRoute(async (req, res) => {
+    if (!req.file || !req.file.buffer) {
+      flash(req, "error", req.t("Selecione um ficheiro CSV para importar sócios."));
+      return res.redirect("/members");
+    }
+
+    const parsedRows = parseMembersCsv(req.file.buffer.toString("utf-8"));
+    if (parsedRows.length === 0) {
+      flash(req, "error", req.t("O CSV de sócios não tem linhas válidas."));
+      return res.redirect("/members");
+    }
+
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+    const connection = await pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      for (const row of parsedRows) {
+        if (!row.memberNumber || !row.name) {
+          skipped += 1;
+          continue;
+        }
+
+        const [[existingMember]] = await connection.execute("SELECT id FROM members WHERE member_number = ? LIMIT 1", [
+          row.memberNumber,
+        ]);
+
+        if (existingMember) {
+          await connection.execute("UPDATE members SET name = ?, active = ? WHERE id = ?", [
+            row.name,
+            row.active,
+            existingMember.id,
+          ]);
+          updated += 1;
+        } else {
+          await connection.execute("INSERT INTO members (member_number, name, active) VALUES (?, ?, ?)", [
+            row.memberNumber,
+            row.name,
+            row.active,
+          ]);
+          created += 1;
+        }
+      }
+
+      await connection.commit();
+      flash(
+        req,
+        "success",
+        req.t("Importação concluída: {created} criados, {updated} atualizados, {skipped} ignorados.", {
+          created,
+          updated,
+          skipped,
+        }),
+      );
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
     return res.redirect("/members");
   }),
 );
