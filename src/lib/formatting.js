@@ -16,7 +16,18 @@ function formatDateTime(value) {
   }).format(new Date(value));
 }
 
+function formatDate(value) {
+  if (!value) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("pt-PT", {
+    dateStyle: "short",
+  }).format(new Date(value));
+}
+
 module.exports = {
+  formatDate,
   formatDateTime,
   money,
 };

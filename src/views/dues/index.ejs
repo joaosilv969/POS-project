@@ -26,7 +26,10 @@
     </div>
     <input type="hidden" name="year" value="<%= year %>" />
     <p class="text-muted">Envia um aviso para os sócios ativos com valor em falta no ano selecionado.</p>
-    <button class="button primary" type="submit">Enviar emails de aviso</button>
+    <div class="form-actions">
+      <button class="button primary" type="submit">Enviar emails de aviso</button>
+      <a class="button secondary" href="/dues/export-debtors?year=<%= year %>">Exportar devedores (CSV)</a>
+    </div>
   </form>
 <% } %>
 
@@ -37,6 +40,7 @@
         <tr>
           <th>Nº Sócio</th>
           <th>Nome</th>
+          <th>Data de Entrada</th>
           <th>Estado</th>
           <th>Pago</th>
           <th>Em falta</th>
@@ -51,6 +55,7 @@
           <tr>
             <td><%= member.member_number %></td>
             <td><%= member.name %></td>
+            <td><%= member.entry_date ? formatDate(member.entry_date) : '---' %></td>
             <td>
               <span class="<%= due <= 0 ? 'pill success' : (paidTotal > 0 ? 'pill secondary' : 'pill danger') %>">
                 <%= due <= 0 ? 'Pago' : (paidTotal > 0 ? 'Parcial' : 'Por pagar') %>
@@ -63,7 +68,7 @@
           </tr>
         <% }) %>
         <% if (members.length === 0) { %>
-          <tr><td colspan="7">Sem sócios.</td></tr>
+          <tr><td colspan="8">Sem sócios.</td></tr>
         <% } %>
       </tbody>
     </table>

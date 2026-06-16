@@ -145,6 +145,18 @@ function createDateTimeFormatter(locale = "pt-PT") {
   };
 }
 
+function createDateFormatter(locale = "pt-PT") {
+  return (value) => {
+    if (!value) {
+      return "";
+    }
+
+    return new Intl.DateTimeFormat(locale, {
+      dateStyle: "short",
+    }).format(new Date(value));
+  };
+}
+
 function readCookieValue(cookieHeader, key) {
   const source = String(cookieHeader || "");
   if (!source) {
@@ -181,6 +193,24 @@ async function duesAmountForYear(year) {
     return Number(row.amount);
   }
   return duesDefaultAmount();
+}
+
+function memberShouldPayDuesForYear(member, year) {
+  // Se não tem data de entrada, deve pagar
+  if (!member.entry_date) {
+    return true;
+  }
+
+  // Se a data de entrada é nula (no banco), deve pagar
+  if (member.entry_date === null) {
+    return true;
+  }
+
+  const entryDate = new Date(member.entry_date);
+  const yearStart = new Date(year, 0, 1); // 1 de janeiro do ano em questão
+
+  // Se entrou DEPOIS de 31 de dezembro do ano anterior (ou seja, no ano ou depois), deve pagar
+  return entryDate <= yearStart;
 }
 
 const MySQLStore = createMySQLSessionStore(session);
@@ -375,6 +405,7 @@ app.use((req, res, next) => {
   res.locals.receiptPrefixMerchandising = appSettings.receiptPrefixMerchandising();
   res.locals.assetVersion = assetVersion;
   res.locals.money = createMoneyFormatter(req.language);
+  res.locals.formatDate = createDateFormatter(req.language);
   res.locals.formatDateTime = createDateTimeFormatter(req.language);
   res.locals.makePercent = makePercent;
   delete req.session.flash;
@@ -3075,6 +3106,7 @@ app.post(
     const memberNumber = String(req.body.member_number || "").trim();
     const name = String(req.body.name || "").trim();
     const email = String(req.body.email || "").trim().toLowerCase();
+    const entryDate = String(req.body.entry_date || "").trim() || null;
     const sendWelcomeEmail = Boolean(req.body.send_welcome_email);
 
     if (!memberNumber || !name || !isValidEmail(email)) {
@@ -3090,7 +3122,7 @@ app.post(
     }
 
     try {
-      await pool.execute("INSERT INTO members (member_number, name, email, active) VALUES (?, ?, ?, 1)", [memberNumber, name, email]);
+      await pool.execute("INSERT INTO members (member_number, name, email, entry_date, active) VALUES (?, ?, ?, ?, 1)", [memberNumber, name, email, entryDate]);
       try {
         const welcomeResult = await sendWelcomeEmailToMember({ memberNumber, name, email }, { enabled: sendWelcomeEmail });
         if (welcomeResult.sent) {
@@ -3240,6 +3272,7 @@ app.post(
     const memberNumber = String(req.body.member_number || "").trim();
     const name = String(req.body.name || "").trim();
     const email = String(req.body.email || "").trim().toLowerCase();
+    const entryDate = String(req.body.entry_date || "").trim() || null;
     const active = req.body.active ? 1 : 0;
 
     if (!memberNumber || !name || !isValidEmail(email)) {
@@ -3254,10 +3287,11 @@ app.post(
       return res.redirect(`/members/${memberId}/edit`);
     }
 
-    await pool.execute("UPDATE members SET member_number = ?, name = ?, email = ?, active = ? WHERE id = ?", [
+    await pool.execute("UPDATE members SET member_number = ?, name = ?, email = ?, entry_date = ?, active = ? WHERE id = ?", [
       memberNumber,
       name,
       email,
+      entryDate,
       active,
       memberId,
     ]);
@@ -3305,12 +3339,15 @@ app.get(
       params,
     );
 
+    // Filtrar membros que devem pagar cotas este ano
+    const membersWithDues = members.filter((m) => memberShouldPayDuesForYear(m, year));
+
     res.render("dues/index", {
       title: "Cotas",
       year,
       q,
       expectedAmount,
-      members,
+      members: membersWithDues,
     });
   }),
 );
@@ -3334,7 +3371,7 @@ app.post(
 
     const [members] = await pool.execute(
       `SELECT
-         m.id, m.member_number, m.name, m.email,
+         m.id, m.member_number, m.name, m.email, m.entry_date,
          (SELECT COALESCE(SUM(mdp.amount), 0)
           FROM member_dues_payments mdp
           WHERE mdp.member_id = m.id AND mdp.year = ? AND mdp.status = 'paid') AS paid_total
@@ -3349,6 +3386,12 @@ app.post(
     let failed = 0;
 
     for (const member of members) {
+      // Se não deve pagar cotas este ano, pula
+      if (!memberShouldPayDuesForYear(member, year)) {
+        skipped += 1;
+        continue;
+      }
+
       const due = Math.max(0, Number(expectedAmount || 0) - Number(member.paid_total || 0));
       if (due <= 0 || !isValidEmail(member.email)) {
         skipped += 1;
@@ -3365,6 +3408,50 @@ app.post(
 
     flash(req, failed > 0 ? "error" : "success", `Emails de devedores: ${sent} enviados, ${skipped} ignorados, ${failed} falhados.`);
     return res.redirect(`/dues?year=${year}`);
+  }),
+);
+
+app.get(
+  "/dues/export-debtors",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    const year = parseInteger(req.query.year, currentYear());
+    const expectedAmount = await duesAmountForYear(year);
+
+    const [members] = await pool.execute(
+      `SELECT
+         m.id, m.member_number, m.name, m.email, m.entry_date,
+         (SELECT COALESCE(SUM(mdp.amount), 0)
+          FROM member_dues_payments mdp
+          WHERE mdp.member_id = m.id AND mdp.year = ? AND mdp.status = 'paid') AS paid_total
+       FROM members m
+       WHERE m.active = 1
+       ORDER BY m.name ASC`,
+      [year],
+    );
+
+    const debtors = members
+      .filter((m) => memberShouldPayDuesForYear(m, year))
+      .filter((m) => Math.max(0, Number(expectedAmount || 0) - Number(m.paid_total || 0)) > 0)
+      .map((m) => ({
+        numero_socio: m.member_number,
+        nome: m.name,
+        email: m.email,
+        pago: m.paid_total,
+        em_falta: Math.max(0, Number(expectedAmount || 0) - Number(m.paid_total || 0)),
+      }));
+
+    const columns = [
+      { label: "Nº Sócio", key: "numero_socio" },
+      { label: "Nome", key: "nome" },
+      { label: "Email", key: "email" },
+      { label: "Pago", key: "pago" },
+      { label: "Em falta", key: "em_falta" },
+    ];
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="devedores-cotas-${year}.csv"`);
+    return res.send(rowsToCsv(columns, debtors));
   }),
 );
 

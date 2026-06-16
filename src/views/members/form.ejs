@@ -22,6 +22,11 @@
     <input type="email" name="email" required maxlength="180" value="<%= member ? member.email : '' %>" />
   </label>
 
+  <label>
+    Data de Entrada
+    <input type="date" name="entry_date" value="<%= member && member.entry_date ? member.entry_date.split('T')[0] : '' %>" />
+  </label>
+
   <% if (!member) { %>
     <label class="toggle-field wide">
       <input type="checkbox" name="send_welcome_email" checked />
