@@ -546,20 +546,8 @@ body[data-theme="dark"] .theme-icon::after {
   background: #16161a;
 }
 
-.theme-switch-compact {
-  width: 126px;
-}
-
-.theme-switch-compact button {
-  min-height: 32px;
-  gap: 0.3rem;
-  padding: 0.32rem 0.38rem;
-  font-size: 0.72rem;
-}
-
-.theme-switch-compact .theme-swatch {
-  width: 10px;
-  height: 10px;
+.sidebar-theme-switch {
+  margin-bottom: 0.45rem;
 }
 
 .nav-list {
@@ -665,24 +653,6 @@ body[data-theme="dark"] .theme-icon::after {
 .sidebar-user {
   margin-top: auto;
   display: grid;
-}
-
-.sidebar-user-profile {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.65rem;
-  align-items: center;
-}
-
-.sidebar-user-name {
-  min-width: 0;
-}
-
-.sidebar-user-name strong,
-.sidebar-user-name small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .sidebar-meta {

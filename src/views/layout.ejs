@@ -101,15 +101,7 @@
 
         <div class="sidebar-user">
           <div class="sidebar-meta">
-            <small><%= appName %> <%= softwareVersion %></small>
-            <small>Developed by <%= softwareAuthor %></small>
-          </div>
-          <div class="sidebar-user-profile">
-            <div class="sidebar-user-name">
-              <strong><%= currentUser.name %></strong>
-              <small><%= currentUser.role === "admin" ? t("Administrador") : t("Funcionário") %></small>
-            </div>
-            <div class="theme-switch theme-switch-compact" role="group" aria-label="<%= t('Tema da app') %>">
+            <div class="theme-switch sidebar-theme-switch" role="group" aria-label="<%= t('Tema da app') %>">
               <button type="button" data-theme-option="light" aria-pressed="<%= theme === 'dark' ? 'false' : 'true' %>">
                 <span class="theme-swatch theme-swatch-light" aria-hidden="true"></span>
                 <span><%= t("Claro") %></span>
@@ -119,6 +111,12 @@
                 <span><%= t("Escuro") %></span>
               </button>
             </div>
+            <small><%= appName %> <%= softwareVersion %></small>
+            <small>Developed by <%= softwareAuthor %></small>
+          </div>
+          <div>
+            <strong><%= currentUser.name %></strong>
+            <small><%= currentUser.role === "admin" ? t("Administrador") : t("Funcionário") %></small>
           </div>
           <form method="post" action="/logout">
             <button class="button ghost full" type="submit"><%= t("Sair") %></button>
