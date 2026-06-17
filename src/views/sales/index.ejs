@@ -5,7 +5,7 @@
   </div>
 </section>
 
-<form class="filter-bar" method="get" action="/sales">
+<form class="filter-bar" method="get" action="<%= currentPath %>">
   <label>
     Início
     <input type="date" name="start_date" value="<%= filters.start_date || '' %>" />
@@ -15,7 +15,7 @@
     <input type="date" name="end_date" value="<%= filters.end_date || '' %>" />
   </label>
   <button class="button secondary" type="submit">Filtrar</button>
-  <a class="button ghost" href="/sales">Limpar</a>
+  <a class="button ghost" href="<%= currentPath %>">Limpar</a>
 </form>
 
 <section class="panel">

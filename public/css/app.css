@@ -1134,14 +1134,16 @@ body[data-theme="dark"] .dues-progress-track {
   align-items: start;
 }
 
+.cash-closing-layout-simple {
+  grid-template-columns: minmax(220px, 0.75fr) minmax(260px, 1fr);
+}
+
 .cash-closing-inputs,
-.cash-breakdown,
 .cash-closing-summary {
   display: grid;
   gap: 0.85rem;
 }
 
-.cash-breakdown-header,
 .cash-source-list {
   display: flex;
   flex-wrap: wrap;
@@ -1150,30 +1152,9 @@ body[data-theme="dark"] .dues-progress-track {
   justify-content: space-between;
 }
 
-.cash-breakdown-header span,
 .cash-source-list {
   color: var(--muted);
   font-weight: 800;
-}
-
-.cash-denomination-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.55rem;
-}
-
-.cash-denomination {
-  gap: 0.3rem;
-}
-
-.cash-denomination span {
-  color: var(--text);
-  font-size: 0.82rem;
-}
-
-.cash-denomination input {
-  min-height: 38px;
-  padding: 0.45rem 0.55rem;
 }
 
 .cash-closing-summary > div {
@@ -1900,10 +1881,6 @@ body[data-theme="dark"] .qty-button {
 
   .bar-row {
     grid-template-columns: 1fr;
-  }
-
-  .cash-denomination-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .trend-bar {

@@ -97,6 +97,62 @@
   </article>
 </section>
 
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <h2>Fechos de caixa</h2>
+      <p class="text-muted">
+        <%= cashClosingSummary.closings_count || 0 %> fechos ·
+        <%= money(cashClosingSummary.withdraw_total || 0) %> a retirar ·
+        <%= money(cashClosingSummary.difference_total || 0) %> de diferença
+      </p>
+    </div>
+    <a class="button ghost" href="<%= exportLink('cash-closings') %>">CSV</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Fechado em</th>
+          <th>Período</th>
+          <th>Utilizador</th>
+          <th>Registado</th>
+          <th>Fundo</th>
+          <th>Contado</th>
+          <th>A retirar</th>
+          <th>Diferença</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% cashClosings.forEach((closing) => { %>
+          <% const difference = Number(closing.difference_amount || 0); %>
+          <tr>
+            <td><%= formatDateTime(closing.closed_at) %></td>
+            <td>
+              <%= closing.period_start ? formatDate(closing.period_start) : 'Sem início' %>
+              -
+              <%= closing.period_end ? formatDate(closing.period_end) : 'Sem fim' %>
+            </td>
+            <td><%= closing.user_name %></td>
+            <td><%= money(closing.registered_cash_total || 0) %></td>
+            <td><%= money(closing.opening_float || 0) %></td>
+            <td><%= money(closing.counted_cash || 0) %></td>
+            <td><%= money(closing.withdraw_amount || 0) %></td>
+            <td>
+              <span class="<%= Math.abs(difference) < 0.01 ? 'pill success' : 'pill danger' %>">
+                <%= money(difference) %>
+              </span>
+            </td>
+          </tr>
+        <% }) %>
+        <% if (cashClosings.length === 0) { %>
+          <tr><td colspan="8">Sem fechos de caixa para os filtros escolhidos.</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</section>
+
 <section class="analytics-grid">
   <article class="panel analytics-wide">
     <div class="panel-header">

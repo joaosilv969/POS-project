@@ -177,6 +177,25 @@ function createDateInputValue(value = null) {
   return `${year}-${month}-${day}`;
 }
 
+function isDateInputValue(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+}
+
+function currentDateFilterDefaults() {
+  const today = createDateInputValue();
+  return { startDate: today, endDate: today };
+}
+
+function withDefaultDateRange(query = {}) {
+  const today = createDateInputValue();
+
+  return {
+    ...query,
+    start_date: isDateInputValue(query.start_date) ? query.start_date : today,
+    end_date: isDateInputValue(query.end_date) ? query.end_date : today,
+  };
+}
+
 function readCookieValue(cookieHeader, key) {
   const source = String(cookieHeader || "");
   if (!source) {
@@ -594,6 +613,42 @@ async function sendDebtorEmail(member, year, expectedAmount) {
   });
 }
 
+async function sendQuotaPaymentReceivedEmail(member, payment) {
+  if (!emailSettingsConfigured()) {
+    return { sent: false, reason: "missing-email-settings" };
+  }
+
+  if (!isValidEmail(member.email)) {
+    return { sent: false, reason: "invalid-email" };
+  }
+
+  const money = createMoneyFormatter("pt-PT");
+  const expectedAmount = Number(payment.expectedAmount || 0);
+  const paidTotal = Number(payment.paidTotal || 0);
+  const remainingAmount = Math.max(0, expectedAmount - paidTotal);
+  const templates = appSettings.emailTemplates();
+  const variables = {
+    appName: appSettings.appName(),
+    expectedAmount: money(expectedAmount),
+    memberEmail: member.email,
+    memberName: member.name,
+    memberNumber: member.member_number,
+    paidTotal: money(paidTotal),
+    paymentMethod: payment.paymentMethodName,
+    receivedAmount: money(payment.amount),
+    remainingAmount: money(remainingAmount),
+    year: payment.year,
+  };
+
+  await sendEmail(appSettings.smtpSettings(), {
+    to: member.email,
+    subject: renderEmailTemplate(templates.quotaPaymentReceivedEmailSubject, variables),
+    text: renderEmailTemplate(templates.quotaPaymentReceivedEmailBody, variables),
+  });
+
+  return { sent: true };
+}
+
 async function getActiveCategories(scope = "bar") {
   const normalizedScope = scope === "merchandising" ? "merchandising" : "bar";
   try {
@@ -698,22 +753,24 @@ function buildProductFromRequest(req, fixedProductType = null) {
 }
 
 function dateFilters(query, alias = "s", dateColumn = "created_at") {
+  const values = withDefaultDateRange(query);
   const filters = [];
   const params = [];
 
-  if (query.start_date) {
+  if (values.start_date) {
     filters.push(`${alias}.${dateColumn} >= ?`);
-    params.push(query.start_date);
+    params.push(values.start_date);
   }
 
-  if (query.end_date) {
+  if (values.end_date) {
     filters.push(`${alias}.${dateColumn} < DATE_ADD(?, INTERVAL 1 DAY)`);
-    params.push(query.end_date);
+    params.push(values.end_date);
   }
 
   return {
     where: filters.length > 0 ? `AND ${filters.join(" AND ")}` : "",
     params,
+    values,
   };
 }
 
@@ -767,6 +824,26 @@ function decorateReportRows(rows, valueKey = "total") {
 
 function reportExportLink(type, queryString) {
   return `/reports/export/${type}${queryString ? `?${queryString}` : ""}`;
+}
+
+function cashClosingReportFilters(filters, alias = "cc") {
+  const clauses = [];
+  const params = [];
+
+  if (filters.startDate) {
+    clauses.push(`${alias}.closed_at >= ?`);
+    params.push(filters.startDate);
+  }
+
+  if (filters.endDate) {
+    clauses.push(`${alias}.closed_at < DATE_ADD(?, INTERVAL 1 DAY)`);
+    params.push(filters.endDate);
+  }
+
+  return {
+    where: clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "",
+    params,
+  };
 }
 
 function duesPaymentFilters(filters, alias = "mdp") {
@@ -1241,6 +1318,8 @@ app.post(
       debtorEmailSubject: String(req.body.debtor_email_subject || "").trim(),
       memberWelcomeEmailBody: String(req.body.member_welcome_email_body || "").trim(),
       memberWelcomeEmailSubject: String(req.body.member_welcome_email_subject || "").trim(),
+      quotaPaymentReceivedEmailBody: String(req.body.quota_payment_received_email_body || "").trim(),
+      quotaPaymentReceivedEmailSubject: String(req.body.quota_payment_received_email_subject || "").trim(),
     });
 
     flash(req, "success", "Textos dos emails atualizados.");
@@ -1744,7 +1823,7 @@ app.post(
 );
 
 async function renderStock(req, res, defaults = {}) {
-  const filters = normalizeStockReportFilters(req.query, defaults);
+  const filters = normalizeStockReportFilters(req.query, { ...currentDateFilterDefaults(), ...defaults });
   const queryString = preserveStockReportQuery(filters);
   const productFilters = stockProductFilters(filters);
   const movementFilters = stockMovementFilters(filters);
@@ -1914,7 +1993,7 @@ app.get(
   "/stock/export/:type",
   requireAdmin,
   asyncRoute(async (req, res) => {
-    const filters = normalizeStockReportFilters(req.query);
+    const filters = normalizeStockReportFilters(req.query, currentDateFilterDefaults());
     const productFilters = stockProductFilters(filters);
     const movementFilters = stockMovementFilters(filters);
     const type = String(req.params.type || "");
@@ -2706,7 +2785,11 @@ app.get(
 app.get(
   "/sales",
   requireAdmin,
-  (req, res) => res.redirect("/sales/bar"),
+  (req, res) => {
+    const queryIndex = req.originalUrl.indexOf("?");
+    const queryString = queryIndex >= 0 ? req.originalUrl.slice(queryIndex) : "";
+    return res.redirect(`/sales/bar${queryString}`);
+  },
 );
 
 async function renderSales(req, res, scope) {
@@ -2732,7 +2815,7 @@ async function renderSales(req, res, scope) {
   res.render("sales/index", {
     title: normalizedScope === "merchandising" ? "Vendas Merchandising" : "Vendas Bar",
     sales,
-    filters: req.query,
+    filters: filters.values,
   });
 }
 
@@ -2768,101 +2851,169 @@ app.get(
     res.render("sales/index", {
       title: "Minhas vendas",
       sales,
-      filters: req.query,
+      filters: filters.values,
     });
   }),
 );
+
+async function buildCashSummary(query) {
+  const filters = dateFilters(query);
+  const duesFilters = dateFilters(filters.values, "mdp", "paid_at");
+  const cashMethodId = await paymentMethods.getCashPaymentMethodId(1);
+
+  const [barCash] = await pool.execute(
+    `SELECT COUNT(DISTINCT s.id) AS sales_count, SUM(s.total_amount) AS total
+     FROM sales s
+     WHERE s.status = 'completed' AND s.payment_method_id = ? ${filters.where}
+       AND EXISTS (
+         SELECT 1
+         FROM sale_items si
+         INNER JOIN products p ON p.id = si.product_id
+         WHERE si.sale_id = s.id AND p.product_type = 'bar'
+       )`,
+    [cashMethodId, ...filters.params],
+  );
+
+  const [barOtherPayments] = await pool.execute(
+    `SELECT pm.name, pm.code, COUNT(DISTINCT s.id) AS sales_count, SUM(s.total_amount) AS total
+     FROM sales s
+     INNER JOIN payment_methods pm ON pm.id = s.payment_method_id
+     WHERE s.status = 'completed' AND pm.active = 1 AND pm.code != 'cash' ${filters.where}
+       AND EXISTS (
+         SELECT 1
+         FROM sale_items si
+         INNER JOIN products p ON p.id = si.product_id
+         WHERE si.sale_id = s.id AND p.product_type = 'bar'
+       )
+     GROUP BY pm.id, pm.name, pm.code
+     ORDER BY total DESC`,
+    filters.params,
+  );
+
+  const [merchCash] = await pool.execute(
+    `SELECT COUNT(DISTINCT s.id) AS sales_count, SUM(s.total_amount) AS total
+     FROM sales s
+     WHERE s.status = 'completed' AND s.payment_method_id = ? ${filters.where}
+       AND EXISTS (
+         SELECT 1
+         FROM sale_items si
+         INNER JOIN products p ON p.id = si.product_id
+         WHERE si.sale_id = s.id AND p.product_type = 'merchandising'
+       )`,
+    [cashMethodId, ...filters.params],
+  );
+
+  const [merchOtherPayments] = await pool.execute(
+    `SELECT pm.name, pm.code, COUNT(DISTINCT s.id) AS sales_count, SUM(s.total_amount) AS total
+     FROM sales s
+     INNER JOIN payment_methods pm ON pm.id = s.payment_method_id
+     WHERE s.status = 'completed' AND pm.active = 1 AND pm.code != 'cash' ${filters.where}
+       AND EXISTS (
+         SELECT 1
+         FROM sale_items si
+         INNER JOIN products p ON p.id = si.product_id
+         WHERE si.sale_id = s.id AND p.product_type = 'merchandising'
+       )
+     GROUP BY pm.id, pm.name, pm.code
+     ORDER BY total DESC`,
+    filters.params,
+  );
+
+  const [duesCash] = await pool.execute(
+    `SELECT COUNT(DISTINCT mdp.id) AS payments_count, SUM(mdp.amount) AS total
+     FROM member_dues_payments mdp
+     WHERE mdp.status = 'paid' AND mdp.payment_method_id = ? ${duesFilters.where}`,
+    [cashMethodId, ...duesFilters.params],
+  );
+
+  const cashClosing = {
+    barTotal: Number((barCash[0] && barCash[0].total) || 0),
+    merchTotal: Number((merchCash[0] && merchCash[0].total) || 0),
+    duesTotal: Number((duesCash[0] && duesCash[0].total) || 0),
+  };
+  cashClosing.registeredCashTotal = cashClosing.barTotal + cashClosing.merchTotal + cashClosing.duesTotal;
+
+  return {
+    filters: filters.values,
+    barCash: barCash[0] || { sales_count: 0, total: 0 },
+    merchCash: merchCash[0] || { sales_count: 0, total: 0 },
+    duesCash: duesCash[0] || { payments_count: 0, total: 0 },
+    cashClosing,
+    barOtherPayments,
+    merchOtherPayments,
+  };
+}
 
 app.get(
   "/cash-summary",
   requireAuth,
   asyncRoute(async (req, res) => {
-    const filters = dateFilters(req.query);
-    const duesFilters = dateFilters(req.query, "mdp", "paid_at");
-    const cashMethodId = await paymentMethods.getCashPaymentMethodId(1);
-
-    const [barCash] = await pool.execute(
-      `SELECT COUNT(DISTINCT s.id) AS sales_count, SUM(s.total_amount) AS total
-       FROM sales s
-       WHERE s.status = 'completed' AND s.payment_method_id = ? ${filters.where}
-         AND EXISTS (
-           SELECT 1
-           FROM sale_items si
-           INNER JOIN products p ON p.id = si.product_id
-           WHERE si.sale_id = s.id AND p.product_type = 'bar'
-         )`,
-      [cashMethodId, ...filters.params],
-    );
-
-    const [barOtherPayments] = await pool.execute(
-      `SELECT pm.name, pm.code, COUNT(DISTINCT s.id) AS sales_count, SUM(s.total_amount) AS total
-       FROM sales s
-       INNER JOIN payment_methods pm ON pm.id = s.payment_method_id
-       WHERE s.status = 'completed' AND pm.active = 1 AND pm.code != 'cash' ${filters.where}
-         AND EXISTS (
-           SELECT 1
-           FROM sale_items si
-           INNER JOIN products p ON p.id = si.product_id
-           WHERE si.sale_id = s.id AND p.product_type = 'bar'
-         )
-       GROUP BY pm.id, pm.name, pm.code
-       ORDER BY total DESC`,
-      filters.params,
-    );
-
-    const [merchCash] = await pool.execute(
-      `SELECT COUNT(DISTINCT s.id) AS sales_count, SUM(s.total_amount) AS total
-       FROM sales s
-       WHERE s.status = 'completed' AND s.payment_method_id = ? ${filters.where}
-         AND EXISTS (
-           SELECT 1
-           FROM sale_items si
-           INNER JOIN products p ON p.id = si.product_id
-           WHERE si.sale_id = s.id AND p.product_type = 'merchandising'
-         )`,
-      [cashMethodId, ...filters.params],
-    );
-
-    const [merchOtherPayments] = await pool.execute(
-      `SELECT pm.name, pm.code, COUNT(DISTINCT s.id) AS sales_count, SUM(s.total_amount) AS total
-       FROM sales s
-       INNER JOIN payment_methods pm ON pm.id = s.payment_method_id
-       WHERE s.status = 'completed' AND pm.active = 1 AND pm.code != 'cash' ${filters.where}
-         AND EXISTS (
-           SELECT 1
-           FROM sale_items si
-           INNER JOIN products p ON p.id = si.product_id
-           WHERE si.sale_id = s.id AND p.product_type = 'merchandising'
-         )
-       GROUP BY pm.id, pm.name, pm.code
-       ORDER BY total DESC`,
-      filters.params,
-    );
-
-    const [duesCash] = await pool.execute(
-      `SELECT COUNT(DISTINCT mdp.id) AS payments_count, SUM(mdp.amount) AS total
-       FROM member_dues_payments mdp
-       WHERE mdp.status = 'paid' AND mdp.payment_method_id = ? ${duesFilters.where}`,
-      [cashMethodId, ...duesFilters.params],
-    );
-
-    const cashClosing = {
-      barTotal: Number((barCash[0] && barCash[0].total) || 0),
-      merchTotal: Number((merchCash[0] && merchCash[0].total) || 0),
-      duesTotal: Number((duesCash[0] && duesCash[0].total) || 0),
-    };
-    cashClosing.registeredCashTotal = cashClosing.barTotal + cashClosing.merchTotal + cashClosing.duesTotal;
+    const cashSummary = await buildCashSummary(req.query);
 
     res.render("cash-summary", {
       title: "Resumo de caixa",
-      filters: req.query,
-      barCash: barCash[0] || { sales_count: 0, total: 0 },
-      merchCash: merchCash[0] || { sales_count: 0, total: 0 },
-      duesCash: duesCash[0] || { payments_count: 0, total: 0 },
-      cashClosing,
-      barOtherPayments,
-      merchOtherPayments,
+      ...cashSummary,
     });
+  }),
+);
+
+app.post(
+  "/cash-summary/close",
+  requireAuth,
+  asyncRoute(async (req, res) => {
+    const periodFilters = withDefaultDateRange(req.body);
+    const periodStart = String(periodFilters.start_date || "").trim() || null;
+    const periodEnd = String(periodFilters.end_date || "").trim() || null;
+    const openingFloat = parseNumber(req.body.opening_float, 0);
+    const countedCash = parseNumber(req.body.counted_cash, 0);
+    const notes = String(req.body.notes || "").trim().slice(0, 255) || null;
+    const redirectParams = new URLSearchParams();
+
+    if (periodStart) {
+      redirectParams.set("start_date", periodStart);
+    }
+    if (periodEnd) {
+      redirectParams.set("end_date", periodEnd);
+    }
+
+    const redirectTo = `/cash-summary${redirectParams.toString() ? `?${redirectParams}` : ""}`;
+
+    if (openingFloat < 0 || countedCash < 0) {
+      flash(req, "error", "Indique valores de caixa válidos.");
+      return res.redirect(redirectTo);
+    }
+
+    const cashSummary = await buildCashSummary({ start_date: periodStart, end_date: periodEnd });
+    const registeredCashTotal = Number(cashSummary.cashClosing.registeredCashTotal || 0);
+    const expectedCash = openingFloat + registeredCashTotal;
+    const withdrawAmount = countedCash - openingFloat;
+    const differenceAmount = countedCash - expectedCash;
+
+    await pool.execute(
+      `INSERT INTO cash_closings (
+         user_id, period_start, period_end, opening_float, counted_cash,
+         registered_cash_total, expected_cash, withdraw_amount, difference_amount,
+         bar_cash_total, merch_cash_total, dues_cash_total, notes
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.session.user.id,
+        periodStart,
+        periodEnd,
+        openingFloat,
+        countedCash,
+        registeredCashTotal,
+        expectedCash,
+        withdrawAmount,
+        differenceAmount,
+        cashSummary.cashClosing.barTotal,
+        cashSummary.cashClosing.merchTotal,
+        cashSummary.cashClosing.duesTotal,
+        notes,
+      ],
+    );
+
+    flash(req, Math.abs(differenceAmount) < 0.01 ? "success" : "error", `Fecho de caixa registado. Diferença: ${res.locals.money(differenceAmount)}.`);
+    return res.redirect(redirectTo);
   }),
 );
 
@@ -3670,12 +3821,12 @@ app.post(
       return res.redirect(`/dues/${memberId}?year=${year}`);
     }
 
-    const [[member]] = await pool.execute("SELECT id FROM members WHERE id = ? AND active = 1", [memberId]);
+    const [[member]] = await pool.execute("SELECT * FROM members WHERE id = ? AND active = 1", [memberId]);
     if (!member) {
       return res.status(404).render("error", { title: "Sócio não encontrado", message: "O sócio indicado não existe ou está inativo." });
     }
 
-    const [[paymentMethod]] = await pool.execute("SELECT id FROM payment_methods WHERE id = ? AND active = 1", [paymentMethodId]);
+    const [[paymentMethod]] = await pool.execute("SELECT id, name FROM payment_methods WHERE id = ? AND active = 1", [paymentMethodId]);
     if (!paymentMethod) {
       flash(req, "error", "Método de pagamento inválido.");
       return res.redirect(`/dues/${memberId}?year=${year}`);
@@ -3687,7 +3838,37 @@ app.post(
       [memberId, req.session.user.id, paymentMethodId, year, amount, notes],
     );
 
-    flash(req, "success", "Pagamento de quota registado.");
+    const expectedAmount = await calculateMemberDuesForYear(year, member);
+    const [[totals]] = await pool.execute(
+      `SELECT COALESCE(SUM(amount), 0) AS paid_total
+       FROM member_dues_payments
+       WHERE member_id = ? AND year = ? AND status = 'paid'`,
+      [memberId, year],
+    );
+    const paidTotal = totals ? Number(totals.paid_total || 0) : amount;
+
+    try {
+      const emailResult = await sendQuotaPaymentReceivedEmail(member, {
+        amount,
+        expectedAmount,
+        paidTotal,
+        paymentMethodName: paymentMethod.name,
+        year,
+      });
+
+      if (emailResult.sent) {
+        flash(req, "success", "Pagamento de quota registado. Email de confirmação enviado.");
+      } else if (emailResult.reason === "missing-email-settings") {
+        flash(req, "error", "Pagamento de quota registado, mas falta configurar o email de envio.");
+      } else if (emailResult.reason === "invalid-email") {
+        flash(req, "error", "Pagamento de quota registado, mas o sócio não tem um email válido.");
+      } else {
+        flash(req, "success", "Pagamento de quota registado.");
+      }
+    } catch (emailError) {
+      flash(req, "error", `Pagamento de quota registado, mas o email de confirmação falhou: ${emailError.message}`);
+    }
+
     return res.redirect(`/dues/${memberId}?year=${year}`);
   }),
 );
@@ -3747,7 +3928,7 @@ app.get(
   "/reports",
   requireAdmin,
   asyncRoute(async (req, res) => {
-    const filters = normalizeReportFilters(req.query);
+    const filters = normalizeReportFilters(req.query, currentDateFilterDefaults());
     const queryString = preserveReportQuery(filters);
     const itemFilters = reportItemFilters(filters);
 
@@ -3865,6 +4046,27 @@ app.get(
       lowStockParams,
     );
 
+    const closingFilters = cashClosingReportFilters(filters);
+    const [cashClosings] = await pool.execute(
+      `SELECT cc.*, u.name AS user_name
+       FROM cash_closings cc
+       INNER JOIN users u ON u.id = cc.user_id
+       ${closingFilters.where}
+       ORDER BY cc.closed_at DESC
+       LIMIT 50`,
+      closingFilters.params,
+    );
+    const [[cashClosingSummary]] = await pool.execute(
+      `SELECT
+         COUNT(*) AS closings_count,
+         COALESCE(SUM(registered_cash_total), 0) AS registered_cash_total,
+         COALESCE(SUM(withdraw_amount), 0) AS withdraw_total,
+         COALESCE(SUM(difference_amount), 0) AS difference_total
+       FROM cash_closings cc
+       ${closingFilters.where}`,
+      closingFilters.params,
+    );
+
     const total = Number(summary.total || 0);
     const salesCount = Number(summary.sales_count || 0);
 
@@ -3886,6 +4088,13 @@ app.get(
       paymentTotals: decorateReportRows(paymentTotals, "total"),
       salesByCategory: decorateReportRows(salesByCategory, "total"),
       lowStock: decorateReportRows(lowStock, "low_stock_threshold"),
+      cashClosings,
+      cashClosingSummary: cashClosingSummary || {
+        closings_count: 0,
+        registered_cash_total: 0,
+        withdraw_total: 0,
+        difference_total: 0,
+      },
     });
   }),
 );
@@ -3894,8 +4103,9 @@ app.get(
   "/reports/export/:type",
   requireAdmin,
   asyncRoute(async (req, res) => {
-    const filters = normalizeReportFilters(req.query);
+    const filters = normalizeReportFilters(req.query, currentDateFilterDefaults());
     const itemFilters = reportItemFilters(filters);
+    const closingFilters = cashClosingReportFilters(filters);
     const type = String(req.params.type || "");
     const exports = {
       daily: {
@@ -3997,6 +4207,28 @@ app.get(
               GROUP BY c.id, c.name, c.scope
               ORDER BY total DESC`,
       },
+      "cash-closings": {
+        filename: "relatorio-fechos-caixa.csv",
+        columns: [
+          { key: "closed_at", label: "Fechado em" },
+          { key: "user_name", label: "Utilizador" },
+          { key: "period_start", label: "Início" },
+          { key: "period_end", label: "Fim" },
+          { key: "opening_float", label: "Fundo de maneio" },
+          { key: "registered_cash_total", label: "Dinheiro registado" },
+          { key: "expected_cash", label: "Esperado em caixa" },
+          { key: "counted_cash", label: "Dinheiro contado" },
+          { key: "withdraw_amount", label: "A retirar" },
+          { key: "difference_amount", label: "Diferença" },
+          { key: "notes", label: "Notas" },
+        ],
+        params: closingFilters.params,
+        sql: `SELECT cc.*, u.name AS user_name
+              FROM cash_closings cc
+              INNER JOIN users u ON u.id = cc.user_id
+              ${closingFilters.where}
+              ORDER BY cc.closed_at DESC`,
+      },
     };
 
     const definition = exports[type];
@@ -4004,7 +4236,7 @@ app.get(
       return res.redirect("/reports");
     }
 
-    const [rows] = await pool.execute(definition.sql, itemFilters.params);
+    const [rows] = await pool.execute(definition.sql, definition.params || itemFilters.params);
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${definition.filename}"`);
     return res.send(rowsToCsv(definition.columns, rows));
@@ -4061,7 +4293,7 @@ app.get(
 
     res.render("reports/index", {
       title: "Relatórios Gerais",
-      filters: req.query,
+      filters: filters.values,
       salesByDay,
       salesByProduct,
       salesByEmployee,
@@ -4075,7 +4307,7 @@ app.get(
   "/reports/merchandising",
   requireAuth,
   asyncRoute(async (req, res) => {
-    const filters = normalizeMerchReportFilters(req.query);
+    const filters = normalizeMerchReportFilters(req.query, currentDateFilterDefaults());
     const queryString = preserveMerchReportQuery(filters);
     const reportFilters = merchReportFilters(filters);
     const categories = await getActiveCategories("merchandising");
@@ -4246,7 +4478,7 @@ app.get(
   "/reports/merchandising/export/:type",
   requireAuth,
   asyncRoute(async (req, res) => {
-    const filters = normalizeMerchReportFilters(req.query);
+    const filters = normalizeMerchReportFilters(req.query, currentDateFilterDefaults());
     const reportFilters = merchReportFilters(filters);
     const type = String(req.params.type || "");
     const exports = {
@@ -4437,7 +4669,7 @@ app.get(
   "/reports/dues",
   requireAdmin,
   asyncRoute(async (req, res) => {
-    const filters = normalizeDuesReportFilters(req.query, currentYear());
+    const filters = normalizeDuesReportFilters(req.query, currentYear(), currentDateFilterDefaults());
     const queryString = preserveDuesReportQuery(filters);
     const year = filters.year;
     const expectedAmount = await duesAmountForYear(year);
@@ -4597,7 +4829,7 @@ app.get(
   "/reports/dues/export/:type",
   requireAdmin,
   asyncRoute(async (req, res) => {
-    const filters = normalizeDuesReportFilters(req.query, currentYear());
+    const filters = normalizeDuesReportFilters(req.query, currentYear(), currentDateFilterDefaults());
     const paymentFilter = duesPaymentFilters(filters);
     const searchFilter = memberSearchFilter(filters);
     const expectedAmount = await duesAmountForYear(filters.year);
@@ -4754,7 +4986,7 @@ app.get(
 
     res.render("reports/index", {
       title: "Relatórios",
-      filters: req.query,
+      filters: filters.values,
       salesByDay,
       salesByProduct,
       salesByEmployee,

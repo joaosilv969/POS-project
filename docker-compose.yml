@@ -9,7 +9,7 @@ services:
     ports:
       - "${APP_PUBLIC_PORT:-8080}:3000"
     volumes:
-      - /home/volumes/uploads1:/app1/uploads
+      - /home/volumes/app1/uploads:/app/uploads
     depends_on:
       mariadb1:
         condition: service_healthy
@@ -22,7 +22,7 @@ services:
       DB_NAME: ${DB_NAME:-bar_db}
       DB_USER: ${DB_USER:-bar_user}
       DB_PASSWORD: ${DB_PASSWORD:-bar_password}
-      UPLOAD_DIR: /app1/uploads
+      UPLOAD_DIR: /app/uploads
       ADMIN_CANCEL_PIN: ${ADMIN_CANCEL_PIN:-}
     deploy:
       resources:
@@ -40,7 +40,7 @@ services:
       MARIADB_USER: ${DB_USER:-bar_user}
       MARIADB_PASSWORD: ${DB_PASSWORD:-bar_password}
     volumes:
-      - /home/volumes/db2:/var/lib/mysql
+      - /home/volumes/mariadb1/data:/var/lib/mysql
     ports:
       - "${DB_PUBLIC_PORT:-3306}:3306"
     healthcheck:

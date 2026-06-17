@@ -2,7 +2,7 @@
   <div>
     <p class="eyebrow">Configuração</p>
     <h1>Email</h1>
-    <p class="text-muted">Envio de estatutos, avisos de quotas em atraso e templates editáveis.</p>
+    <p class="text-muted">Envio de estatutos, confirmações de pagamento, avisos de quotas em atraso e templates editáveis.</p>
   </div>
   <a class="button secondary" href="/settings">Voltar</a>
 </section>
@@ -94,6 +94,30 @@
         <label>
           Texto
           <textarea name="member_welcome_email_body" rows="8"><%= emailTemplates ? emailTemplates.memberWelcomeEmailBody : '' %></textarea>
+        </label>
+      </div>
+
+      <hr />
+
+      <div class="template-editor" data-template-editor>
+        <div class="panel-header">
+          <h2>Email de pagamento recebido</h2>
+        </div>
+
+        <div class="variable-toolbar" aria-label="Variáveis do email de pagamento recebido">
+          <% ['appName', 'memberName', 'memberNumber', 'memberEmail', 'year', 'receivedAmount', 'paymentMethod', 'expectedAmount', 'paidTotal', 'remainingAmount'].forEach((variable) => { %>
+            <button class="variable-chip" type="button" data-insert-variable="{<%= variable %>}" data-default-target="quota_payment_received_email_body">{<%= variable %>}</button>
+          <% }) %>
+        </div>
+
+        <label>
+          Assunto
+          <input name="quota_payment_received_email_subject" value="<%= emailTemplates ? emailTemplates.quotaPaymentReceivedEmailSubject : '' %>" />
+        </label>
+
+        <label>
+          Texto
+          <textarea name="quota_payment_received_email_body" rows="9"><%= emailTemplates ? emailTemplates.quotaPaymentReceivedEmailBody : '' %></textarea>
         </label>
       </div>
 

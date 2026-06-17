@@ -19,7 +19,6 @@
 </form>
 
 <%
-  const cashDenominations = [50, 20, 10, 5, 2, 1, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01];
   const registeredCashTotal = Number(cashClosing && cashClosing.registeredCashTotal ? cashClosing.registeredCashTotal : 0);
   const cashClosingKey = [
     'cash-closing',
@@ -28,43 +27,39 @@
   ].join(':');
 %>
 
-<section
+<form
   class="panel cash-closing-panel"
+  method="post"
+  action="/cash-summary/close"
+  data-confirm="Registar este fecho de caixa?"
   data-cash-closing
   data-cash-registered-total="<%= registeredCashTotal %>"
   data-cash-closing-key="<%= cashClosingKey %>"
   data-locale="<%= locale %>"
 >
+  <input type="hidden" name="start_date" value="<%= filters.start_date || '' %>" />
+  <input type="hidden" name="end_date" value="<%= filters.end_date || '' %>" />
+
   <div class="panel-header">
     <h2>Fecho de caixa</h2>
     <button class="button ghost" type="button" data-cash-closing-clear>Limpar contagem</button>
   </div>
 
-  <div class="cash-closing-layout">
+  <div class="cash-closing-layout cash-closing-layout-simple">
     <div class="cash-closing-inputs">
       <label>
         Fundo de maneio na abertura
-        <input type="text" inputmode="decimal" placeholder="0,00 €" data-cash-opening />
+        <input type="text" name="opening_float" inputmode="decimal" placeholder="0,00 €" data-cash-opening />
       </label>
       <label>
         Dinheiro contado no fim
-        <input type="text" inputmode="decimal" placeholder="0,00 €" data-cash-counted />
+        <input type="text" name="counted_cash" inputmode="decimal" placeholder="0,00 €" data-cash-counted />
       </label>
-    </div>
-
-    <div class="cash-breakdown">
-      <div class="cash-breakdown-header">
-        <strong>Notas e moedas</strong>
-        <span data-cash-denomination-total><%= money(0) %></span>
-      </div>
-      <div class="cash-denomination-grid">
-        <% cashDenominations.forEach((value) => { %>
-          <label class="cash-denomination">
-            <span><%= money(value) %></span>
-            <input type="number" min="0" step="1" inputmode="numeric" data-cash-denomination="<%= value %>" />
-          </label>
-        <% }) %>
-      </div>
+      <label>
+        Notas do fecho (opcional)
+        <input name="notes" maxlength="255" placeholder="Ex.: conferido por dois elementos" />
+      </label>
+      <button class="button primary" type="submit">Fechar caixa</button>
     </div>
 
     <div class="cash-closing-summary">
@@ -92,7 +87,7 @@
     <span>Merchandising: <strong><%= money(cashClosing.merchTotal || 0) %></strong></span>
     <span>Quotas: <strong><%= money(cashClosing.duesTotal || 0) %></strong></span>
   </div>
-</section>
+</form>
 
 <section class="report-grid">
   <article class="panel">

@@ -12,12 +12,20 @@ function positiveInteger(value) {
   return Number.isFinite(number) && number > 0 ? number : 0;
 }
 
-function normalizeReportFilters(query = {}) {
+function normalizeDateDefaults(defaults = {}) {
+  const startDate = isDate(defaults.startDate) ? defaults.startDate : "";
+  const endDate = isDate(defaults.endDate) ? defaults.endDate : startDate;
+
+  return { startDate, endDate };
+}
+
+function normalizeReportFilters(query = {}, defaults = {}) {
   const area = VALID_AREAS.has(query.area) ? query.area : "all";
+  const dateDefaults = normalizeDateDefaults(defaults);
 
   return {
-    startDate: isDate(query.start_date) ? query.start_date : "",
-    endDate: isDate(query.end_date) ? query.end_date : "",
+    startDate: isDate(query.start_date) ? query.start_date : dateDefaults.startDate,
+    endDate: isDate(query.end_date) ? query.end_date : dateDefaults.endDate,
     area,
     paymentMethodId: positiveInteger(query.payment_method_id),
     userId: positiveInteger(query.user_id),
@@ -55,16 +63,17 @@ function preserveReportQuery(filters) {
   return params.toString();
 }
 
-function normalizeDuesReportFilters(query = {}, fallbackYear = new Date().getFullYear()) {
+function normalizeDuesReportFilters(query = {}, fallbackYear = new Date().getFullYear(), defaults = {}) {
   const year = Number.parseInt(query.year, 10);
   const normalizedYear = Number.isFinite(year) && year >= 2000 && year <= 2100 ? year : fallbackYear;
   const status = VALID_DUES_STATUSES.has(query.status) ? query.status : "all";
   const search = String(query.q || "").trim().slice(0, 120);
+  const dateDefaults = normalizeDateDefaults(defaults);
 
   return {
     year: normalizedYear,
-    startDate: isDate(query.start_date) ? query.start_date : "",
-    endDate: isDate(query.end_date) ? query.end_date : "",
+    startDate: isDate(query.start_date) ? query.start_date : dateDefaults.startDate,
+    endDate: isDate(query.end_date) ? query.end_date : dateDefaults.endDate,
     paymentMethodId: positiveInteger(query.payment_method_id),
     status,
     search,
@@ -107,14 +116,15 @@ function normalizeStockReportFilters(query = {}, defaults = {}) {
   const status = VALID_STOCK_STATUSES.has(query.status) ? query.status : "all";
   const movementType = VALID_STOCK_MOVEMENT_TYPES.has(query.movement_type) ? query.movement_type : "all";
   const search = String(query.q || "").trim().slice(0, 120);
+  const dateDefaults = normalizeDateDefaults(defaults);
 
   return {
     area,
     categoryId: positiveInteger(query.category_id),
     status,
     movementType,
-    startDate: isDate(query.start_date) ? query.start_date : "",
-    endDate: isDate(query.end_date) ? query.end_date : "",
+    startDate: isDate(query.start_date) ? query.start_date : dateDefaults.startDate,
+    endDate: isDate(query.end_date) ? query.end_date : dateDefaults.endDate,
     search,
   };
 }
@@ -153,10 +163,12 @@ function preserveStockReportQuery(filters) {
   return params.toString();
 }
 
-function normalizeMerchReportFilters(query = {}) {
+function normalizeMerchReportFilters(query = {}, defaults = {}) {
+  const dateDefaults = normalizeDateDefaults(defaults);
+
   return {
-    startDate: isDate(query.start_date) ? query.start_date : "",
-    endDate: isDate(query.end_date) ? query.end_date : "",
+    startDate: isDate(query.start_date) ? query.start_date : dateDefaults.startDate,
+    endDate: isDate(query.end_date) ? query.end_date : dateDefaults.endDate,
     categoryId: positiveInteger(query.category_id),
     paymentMethodId: positiveInteger(query.payment_method_id),
     userId: positiveInteger(query.user_id),

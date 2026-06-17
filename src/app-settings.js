@@ -24,6 +24,19 @@ Valor em falta: {dueAmount}
 Obrigado.
 
 {appName}`;
+const DEFAULT_QUOTA_PAYMENT_RECEIVED_EMAIL_SUBJECT = "Pagamento de quota recebido - {year}";
+const DEFAULT_QUOTA_PAYMENT_RECEIVED_EMAIL_BODY = `Olá {memberName},
+
+Recebemos o teu pagamento de quota de {year}.
+
+Valor recebido: {receivedAmount}
+Método de pagamento: {paymentMethod}
+Total pago este ano: {paidTotal}
+Valor em falta: {remainingAmount}
+
+Obrigado.
+
+{appName}`;
 
 function normalizeSettings(source = {}) {
   const appName = String(source.appName || "").trim() || "Motoclube";
@@ -48,6 +61,10 @@ function normalizeSettings(source = {}) {
     debtorEmailSubject: String(source.debtorEmailSubject || "").trim() || DEFAULT_DEBTOR_EMAIL_SUBJECT,
     memberWelcomeEmailBody: String(source.memberWelcomeEmailBody || "").trim() || DEFAULT_MEMBER_WELCOME_EMAIL_BODY,
     memberWelcomeEmailSubject: String(source.memberWelcomeEmailSubject || "").trim() || DEFAULT_MEMBER_WELCOME_EMAIL_SUBJECT,
+    quotaPaymentReceivedEmailBody:
+      String(source.quotaPaymentReceivedEmailBody || "").trim() || DEFAULT_QUOTA_PAYMENT_RECEIVED_EMAIL_BODY,
+    quotaPaymentReceivedEmailSubject:
+      String(source.quotaPaymentReceivedEmailSubject || "").trim() || DEFAULT_QUOTA_PAYMENT_RECEIVED_EMAIL_SUBJECT,
     sendMemberWelcomeEmail: String(source.sendMemberWelcomeEmail || "") === "1" || source.sendMemberWelcomeEmail === true ? 1 : 0,
     smtpFrom: String(source.smtpFrom || "").trim(),
     smtpHost: String(source.smtpHost || "").trim(),
@@ -104,6 +121,8 @@ function createAppSettingsStore({ pool }) {
       debtorEmailSubject: cache.debtorEmailSubject,
       memberWelcomeEmailBody: cache.memberWelcomeEmailBody,
       memberWelcomeEmailSubject: cache.memberWelcomeEmailSubject,
+      quotaPaymentReceivedEmailBody: cache.quotaPaymentReceivedEmailBody,
+      quotaPaymentReceivedEmailSubject: cache.quotaPaymentReceivedEmailSubject,
     }),
     receiptPrefixBar: () => cache.receiptPrefixBar,
     receiptPrefixMerchandising: () => cache.receiptPrefixMerchandising,

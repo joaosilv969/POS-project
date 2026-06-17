@@ -1,5 +1,23 @@
 function parseNumber(value, fallback = 0) {
-  const normalized = String(value ?? "").replace(",", ".");
+  const cleaned = String(value ?? "").trim().replace(/[^\d,.-]/g, "");
+  if (!/\d/.test(cleaned)) {
+    return fallback;
+  }
+
+  const lastComma = cleaned.lastIndexOf(",");
+  const lastDot = cleaned.lastIndexOf(".");
+  let normalized = cleaned;
+
+  if (lastComma >= 0 && lastDot >= 0) {
+    const decimalSeparator = lastComma > lastDot ? "," : ".";
+    const thousandsSeparator = decimalSeparator === "," ? "." : ",";
+    normalized = cleaned.replaceAll(thousandsSeparator, "").replace(decimalSeparator, ".");
+  } else if (lastComma >= 0) {
+    normalized = cleaned.replaceAll(".", "").replace(",", ".");
+  } else {
+    normalized = cleaned.replaceAll(",", "");
+  }
+
   const number = Number(normalized);
   return Number.isFinite(number) ? number : fallback;
 }

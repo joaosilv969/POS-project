@@ -134,13 +134,11 @@ document.querySelectorAll("[data-cash-closing]").forEach((root) => {
   const formatter = new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" });
   const openingInput = root.querySelector("[data-cash-opening]");
   const countedInput = root.querySelector("[data-cash-counted]");
-  const denominationTotal = root.querySelector("[data-cash-denomination-total]");
   const expectedOutput = root.querySelector("[data-cash-expected]");
   const withdrawOutput = root.querySelector("[data-cash-withdraw]");
   const differenceOutput = root.querySelector("[data-cash-difference]");
   const differenceCard = root.querySelector("[data-cash-difference-card]");
   const clearButton = root.querySelector("[data-cash-closing-clear]");
-  const denominationInputs = [...root.querySelectorAll("[data-cash-denomination]")];
 
   function parseCurrency(value) {
     const normalized = String(value || "").replace(/[^\d,.-]/g, "");
@@ -148,23 +146,10 @@ document.querySelectorAll("[data-cash-closing]").forEach((root) => {
     return Number(decimalValue) || 0;
   }
 
-  function formatInputValue(value) {
-    return Number(value || 0).toFixed(2).replace(".", ",");
-  }
-
-  function denominationsTotal() {
-    return denominationInputs.reduce((sum, input) => {
-      const unit = Number(input.dataset.cashDenomination || 0);
-      const quantity = Math.max(0, Number.parseInt(input.value || "0", 10) || 0);
-      return sum + unit * quantity;
-    }, 0);
-  }
-
   function readState() {
     return {
       opening: openingInput ? openingInput.value : "",
       counted: countedInput ? countedInput.value : "",
-      denominations: denominationInputs.map((input) => input.value || ""),
     };
   }
 
@@ -179,14 +164,10 @@ document.querySelectorAll("[data-cash-closing]").forEach((root) => {
   function updateClosing() {
     const opening = parseCurrency(openingInput ? openingInput.value : "");
     const counted = parseCurrency(countedInput ? countedInput.value : "");
-    const countedByDenominations = denominationsTotal();
     const expected = opening + registeredTotal;
     const withdraw = counted - opening;
     const difference = counted - expected;
 
-    if (denominationTotal) {
-      denominationTotal.textContent = formatter.format(countedByDenominations);
-    }
     if (expectedOutput) {
       expectedOutput.textContent = formatter.format(expected);
     }
@@ -216,22 +197,10 @@ document.querySelectorAll("[data-cash-closing]").forEach((root) => {
       if (countedInput) {
         countedInput.value = saved.counted || "";
       }
-      denominationInputs.forEach((input, index) => {
-        input.value = saved.denominations && saved.denominations[index] ? saved.denominations[index] : "";
-      });
     } catch {
       // ignore
     }
   }
-
-  denominationInputs.forEach((input) => {
-    input.addEventListener("input", () => {
-      if (countedInput) {
-        countedInput.value = formatInputValue(denominationsTotal());
-      }
-      updateClosing();
-    });
-  });
 
   [openingInput, countedInput].forEach((input) => {
     if (input) {
@@ -247,9 +216,6 @@ document.querySelectorAll("[data-cash-closing]").forEach((root) => {
       if (countedInput) {
         countedInput.value = "";
       }
-      denominationInputs.forEach((input) => {
-        input.value = "";
-      });
       try {
         localStorage.removeItem(storageKey);
       } catch {
@@ -258,6 +224,17 @@ document.querySelectorAll("[data-cash-closing]").forEach((root) => {
       updateClosing();
     });
   }
+
+  root.addEventListener("submit", (event) => {
+    if (event.defaultPrevented) {
+      return;
+    }
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {
+      // ignore
+    }
+  });
 
   loadState();
   updateClosing();

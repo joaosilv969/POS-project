@@ -35,6 +35,13 @@ test("normalizeReportFilters keeps valid filters and drops invalid values", () =
   });
 });
 
+test("normalizeReportFilters applies default date range", () => {
+  const filters = normalizeReportFilters({}, { startDate: "2026-06-17", endDate: "2026-06-17" });
+
+  assert.equal(filters.startDate, "2026-06-17");
+  assert.equal(filters.endDate, "2026-06-17");
+});
+
 test("preserveReportQuery serializes active filters only", () => {
   const query = preserveReportQuery({
     startDate: "2026-05-01",
@@ -108,6 +115,13 @@ test("normalizeDuesReportFilters falls back on invalid dues filters", () => {
   });
 });
 
+test("normalizeDuesReportFilters applies default date range", () => {
+  const filters = normalizeDuesReportFilters({}, 2026, { startDate: "2026-06-17", endDate: "2026-06-17" });
+
+  assert.equal(filters.startDate, "2026-06-17");
+  assert.equal(filters.endDate, "2026-06-17");
+});
+
 test("preserveDuesReportQuery serializes active dues filters only", () => {
   const query = preserveDuesReportQuery({
     year: 2025,
@@ -161,6 +175,13 @@ test("normalizeStockReportFilters falls back on invalid stock filters", () => {
     endDate: "",
     search: "",
   });
+});
+
+test("normalizeStockReportFilters applies default date range", () => {
+  const filters = normalizeStockReportFilters({}, { startDate: "2026-06-17", endDate: "2026-06-17" });
+
+  assert.equal(filters.startDate, "2026-06-17");
+  assert.equal(filters.endDate, "2026-06-17");
 });
 
 test("preserveStockReportQuery serializes active stock filters only", () => {
@@ -218,6 +239,13 @@ test("normalizeMerchReportFilters falls back on invalid merchandising filters", 
     memberSearch: "",
     productSearch: "",
   });
+});
+
+test("normalizeMerchReportFilters applies default date range", () => {
+  const filters = normalizeMerchReportFilters({}, { startDate: "2026-06-17", endDate: "2026-06-17" });
+
+  assert.equal(filters.startDate, "2026-06-17");
+  assert.equal(filters.endDate, "2026-06-17");
 });
 
 test("preserveMerchReportQuery serializes active merchandising filters only", () => {

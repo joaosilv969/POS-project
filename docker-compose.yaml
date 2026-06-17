@@ -9,7 +9,7 @@ services:
     ports:
       - "${APP_PUBLIC_PORT:-8080}:3000"
     volumes:
-      - uploads_data:/app/uploads
+      - /home/volumes/app/uploads:/app/uploads
     depends_on:
       mariadb:
         condition: service_healthy
@@ -35,7 +35,7 @@ services:
       MARIADB_USER: ${DB_USER:-bar_user}
       MARIADB_PASSWORD: ${DB_PASSWORD:-bar_password}
     volumes:
-      - db_data:/var/lib/mysql
+      - /home/volumes/mariadb/data:/var/lib/mysql
     ports:
       - "${DB_PUBLIC_PORT:-3306}:3306"
     healthcheck:
@@ -55,7 +55,3 @@ services:
       PMA_PORT: 3306
     depends_on:
       - mariadb
-
-volumes:
-  db_data:
-  uploads_data:
