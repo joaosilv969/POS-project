@@ -1,33 +1,94 @@
-const DARK_MODE_KEY = "app_dark_mode";
+const THEME_KEY = "app_theme";
+const LEGACY_DARK_MODE_KEY = "app_dark_mode";
 
-function setDarkMode(enabled) {
-  document.body.dataset.theme = enabled ? "dark" : "light";
-  document.querySelectorAll("[data-dark-mode-toggle]").forEach((button) => {
-    button.textContent = enabled ? "Desativar dark mode" : "Ativar dark mode";
-  });
+function normalizeTheme(theme) {
+  return theme === "dark" ? "dark" : "light";
+}
 
+function getStoredTheme() {
   try {
-    localStorage.setItem(DARK_MODE_KEY, enabled ? "1" : "0");
+    const theme = localStorage.getItem(THEME_KEY);
+    if (theme === "dark" || theme === "light") {
+      return theme;
+    }
+
+    const legacyDarkMode = localStorage.getItem(LEGACY_DARK_MODE_KEY);
+    if (legacyDarkMode === "1" || legacyDarkMode === "0") {
+      return legacyDarkMode === "1" ? "dark" : "light";
+    }
   } catch {
     // ignore
   }
 
-  document.cookie = `app_theme=${enabled ? "dark" : "light"}; Path=/; Max-Age=31536000; SameSite=Lax`;
+  return normalizeTheme(document.body.dataset.theme);
 }
 
-function isDarkModeEnabled() {
+function persistTheme(theme) {
   try {
-    return localStorage.getItem(DARK_MODE_KEY) === "1";
+    localStorage.setItem(THEME_KEY, theme);
+    localStorage.setItem(LEGACY_DARK_MODE_KEY, theme === "dark" ? "1" : "0");
   } catch {
-    return false;
+    // ignore
+  }
+
+  document.cookie = `${THEME_KEY}=${theme}; Path=/; Max-Age=31536000; SameSite=Lax`;
+}
+
+function updateThemeControls(theme) {
+  document.querySelectorAll("[data-theme-option]").forEach((button) => {
+    const isActive = normalizeTheme(button.dataset.themeOption) === theme;
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+
+  document.querySelectorAll("[data-dark-mode-toggle]").forEach((button) => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    const label =
+      nextTheme === "dark"
+        ? button.dataset.darkModeLabel || "Ativar modo escuro"
+        : button.dataset.lightModeLabel || "Ativar modo claro";
+    const labelTarget = button.querySelector("[data-theme-toggle-label]");
+
+    button.setAttribute("aria-label", label);
+    button.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+    button.setAttribute("title", label);
+
+    if (labelTarget) {
+      labelTarget.textContent = label;
+    } else if (!button.hasAttribute("data-icon-only")) {
+      button.textContent = label;
+    }
+  });
+}
+
+function setTheme(theme, shouldPersist = true) {
+  const nextTheme = normalizeTheme(theme);
+  document.documentElement.dataset.theme = nextTheme;
+  document.body.dataset.theme = nextTheme;
+  document.body.setAttribute("bgcolor", nextTheme === "dark" ? "#0b0b0d" : "#f3f3f4");
+
+  const colorSchemeMeta = document.querySelector('meta[name="color-scheme"]');
+  if (colorSchemeMeta) {
+    colorSchemeMeta.setAttribute("content", nextTheme);
+  }
+
+  updateThemeControls(nextTheme);
+
+  if (shouldPersist) {
+    persistTheme(nextTheme);
   }
 }
 
-setDarkMode(isDarkModeEnabled());
+setTheme(getStoredTheme());
+
+document.querySelectorAll("[data-theme-option]").forEach((button) => {
+  button.addEventListener("click", () => {
+    setTheme(button.dataset.themeOption);
+  });
+});
 
 document.querySelectorAll("[data-dark-mode-toggle]").forEach((button) => {
   button.addEventListener("click", () => {
-    setDarkMode(document.body.dataset.theme !== "dark");
+    setTheme(document.body.dataset.theme === "dark" ? "light" : "dark");
   });
 });
 

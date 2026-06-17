@@ -51,7 +51,8 @@
       <tbody>
         <% members.forEach((member) => { %>
           <% const paidTotal = Number(member.paid_total || 0); %>
-          <% const due = Math.max(0, Number(expectedAmount || 0) - paidTotal); %>
+          <% const memberExpectedAmount = Number(member.expected_amount || 0); %>
+          <% const due = Math.max(0, memberExpectedAmount - paidTotal); %>
           <tr>
             <td><%= member.member_number %></td>
             <td><%= member.name %></td>

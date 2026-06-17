@@ -195,6 +195,45 @@ async function duesAmountForYear(year) {
   return duesDefaultAmount();
 }
 
+/**
+ * Calcula o valor das cotas a pagar para um sócio num determinado ano
+ * Se o sócio entrou no meio do ano, calcula pro-rata
+ * @param {number} year - Ano fiscal
+ * @param {Object} member - Objeto sócio com propriedade entry_date
+ * @returns {Promise<number>} Valor a pagar (pro-rata ou valor anual completo)
+ */
+async function calculateMemberDuesForYear(year, member) {
+  const fullAmount = await duesAmountForYear(year);
+  
+  // Se não tem data de entrada, paga o valor completo
+  if (!member.entry_date) {
+    return fullAmount;
+  }
+
+  const entryDate = new Date(member.entry_date);
+  const yearStart = new Date(year, 0, 1); // 1 de janeiro
+  const yearEnd = new Date(year, 11, 31); // 31 de dezembro
+
+  // Se entrou antes do ano, paga o valor completo
+  if (entryDate < yearStart) {
+    return fullAmount;
+  }
+
+  // Se entrou depois do ano terminar, paga 0
+  if (entryDate > yearEnd) {
+    return 0;
+  }
+
+  // Se entrou no meio do ano, calcula pro-rata
+  // Conta o número de meses completos (a partir do dia de entrada)
+  const entryMonth = entryDate.getMonth(); // 0-11
+  const monthsRemaining = 12 - entryMonth; // Meses desde o mês de entrada até dezembro
+  
+  // Pro-rata proporcional ao número de meses
+  const proRataAmount = Math.round((fullAmount / 12) * monthsRemaining);
+  return proRataAmount;
+}
+
 function memberShouldPayDuesForYear(member, year) {
   // Se não tem data de entrada, deve pagar
   if (!member.entry_date) {
@@ -208,9 +247,10 @@ function memberShouldPayDuesForYear(member, year) {
 
   const entryDate = new Date(member.entry_date);
   const yearStart = new Date(year, 0, 1); // 1 de janeiro do ano em questão
+  const yearEnd = new Date(year, 11, 31); // 31 de dezembro
 
-  // Se entrou DEPOIS de 31 de dezembro do ano anterior (ou seja, no ano ou depois), deve pagar
-  return entryDate <= yearStart;
+  // Se entrou neste ano ou antes, deve pagar
+  return entryDate <= yearEnd;
 }
 
 const MySQLStore = createMySQLSessionStore(session);
@@ -3342,6 +3382,11 @@ app.get(
     // Filtrar membros que devem pagar cotas este ano
     const membersWithDues = members.filter((m) => memberShouldPayDuesForYear(m, year));
 
+    // Calcular o valor pro-rata para cada sócio
+    for (const member of membersWithDues) {
+      member.expected_amount = await calculateMemberDuesForYear(year, member);
+    }
+
     res.render("dues/index", {
       title: "Cotas",
       year,
@@ -3392,14 +3437,16 @@ app.post(
         continue;
       }
 
-      const due = Math.max(0, Number(expectedAmount || 0) - Number(member.paid_total || 0));
+      // Calcula o valor devido para este sócio (pro-rata se necessário)
+      const memberExpectedAmount = await calculateMemberDuesForYear(year, member);
+      const due = Math.max(0, Number(memberExpectedAmount || 0) - Number(member.paid_total || 0));
       if (due <= 0 || !isValidEmail(member.email)) {
         skipped += 1;
         continue;
       }
 
       try {
-        await sendDebtorEmail(member, year, expectedAmount);
+        await sendDebtorEmail(member, year, memberExpectedAmount);
         sent += 1;
       } catch {
         failed += 1;
@@ -3430,16 +3477,24 @@ app.get(
       [year],
     );
 
-    const debtors = members
-      .filter((m) => memberShouldPayDuesForYear(m, year))
-      .filter((m) => Math.max(0, Number(expectedAmount || 0) - Number(m.paid_total || 0)) > 0)
-      .map((m) => ({
+    const debtors = [];
+    for (const m of members) {
+      if (!memberShouldPayDuesForYear(m, year)) {
+        continue;
+      }
+      const memberExpectedAmount = await calculateMemberDuesForYear(year, m);
+      const due = Math.max(0, Number(memberExpectedAmount || 0) - Number(m.paid_total || 0));
+      if (due <= 0) {
+        continue;
+      }
+      debtors.push({
         numero_socio: m.member_number,
         nome: m.name,
         email: m.email,
         pago: m.paid_total,
-        em_falta: Math.max(0, Number(expectedAmount || 0) - Number(m.paid_total || 0)),
-      }));
+        em_falta: due,
+      });
+    }
 
     const columns = [
       { label: "Nº Sócio", key: "numero_socio" },
@@ -3461,12 +3516,15 @@ app.get(
   asyncRoute(async (req, res) => {
     const memberId = parseInteger(req.params.memberId);
     const year = parseInteger(req.query.year, currentYear());
-    const expectedAmount = await duesAmountForYear(year);
+    const fullExpectedAmount = await duesAmountForYear(year);
 
     const [[member]] = await pool.execute("SELECT * FROM members WHERE id = ?", [memberId]);
     if (!member) {
       return res.status(404).render("error", { title: "Sócio não encontrado", message: "O sócio indicado não existe." });
     }
+
+    // Calcula o valor esperado (pro-rata se necessário)
+    const expectedAmount = await calculateMemberDuesForYear(year, member);
 
     const [payments] = await pool.execute(
       `SELECT mdp.*, pm.name AS payment_method_name, u.name AS user_name
@@ -3493,6 +3551,7 @@ app.get(
       title: "Pagamento de cotas",
       member,
       year,
+      fullExpectedAmount,
       expectedAmount,
       paidTotal,
       remainingAmount,

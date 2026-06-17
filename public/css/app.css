@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --bg: #f3f3f4;
   --surface: #ffffff;
   --surface-strong: #ececee;
@@ -17,12 +18,13 @@
 }
 
 body[data-theme="dark"] {
+  color-scheme: dark;
   --bg: #0b0b0d;
   --surface: #16161a;
   --surface-strong: #232329;
   --field-bg: #1b1b20;
   --text: #ffffff;
-  --muted: #ffffff;
+  --muted: #b9b9c3;
   --line: #303038;
   --primary: #cf1d28;
   --primary-strong: #e0343e;
@@ -37,6 +39,11 @@ html {
   background: #f3f3f4;
 }
 
+html[data-theme="light"] {
+  background: #f3f3f4;
+}
+
+html[data-theme="dark"],
 html:has(body[data-theme="dark"]) {
   background: #0b0b0d;
 }
@@ -354,6 +361,74 @@ tbody tr:hover td {
   font-weight: 900;
 }
 
+.mobile-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.theme-icon-button {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 90ms ease;
+}
+
+.theme-icon-button:hover {
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--line));
+  background: var(--surface-strong);
+}
+
+.theme-icon-button:active {
+  transform: translateY(1px);
+}
+
+.theme-icon {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+}
+
+.theme-icon::before,
+.theme-icon::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  opacity: 0.65;
+}
+
+.theme-icon::before {
+  border-top: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+}
+
+.theme-icon::after {
+  border-right: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+}
+
+body[data-theme="dark"] .theme-icon {
+  border: 0;
+  background: currentColor;
+  box-shadow: -6px 0 0 -2px var(--surface);
+}
+
+body[data-theme="dark"] .theme-icon::before,
+body[data-theme="dark"] .theme-icon::after {
+  display: none;
+}
+
 .sidebar {
   position: sticky;
   top: 0;
@@ -411,6 +486,80 @@ tbody tr:hover td {
 .sidebar-user small {
   display: block;
   color: #e0e0e3;
+}
+
+.theme-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.25rem;
+}
+
+.theme-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-width: 0;
+  min-height: 36px;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: #ececef;
+  cursor: pointer;
+  padding: 0.4rem 0.5rem;
+  font-weight: 900;
+  transition: background 120ms ease, color 120ms ease, transform 90ms ease;
+}
+
+.theme-switch button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.theme-switch button:active {
+  transform: translateY(1px);
+}
+
+.theme-switch button[aria-pressed="true"] {
+  background: #ffffff;
+  color: #151519;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.theme-swatch {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+}
+
+.theme-swatch-light {
+  background: #f3f3f4;
+}
+
+.theme-swatch-dark {
+  background: #16161a;
+}
+
+.theme-switch-compact {
+  width: 126px;
+}
+
+.theme-switch-compact button {
+  min-height: 32px;
+  gap: 0.3rem;
+  padding: 0.32rem 0.38rem;
+  font-size: 0.72rem;
+}
+
+.theme-switch-compact .theme-swatch {
+  width: 10px;
+  height: 10px;
 }
 
 .nav-list {
@@ -516,6 +665,24 @@ tbody tr:hover td {
 .sidebar-user {
   margin-top: auto;
   display: grid;
+}
+
+.sidebar-user-profile {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.sidebar-user-name {
+  min-width: 0;
+}
+
+.sidebar-user-name strong,
+.sidebar-user-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-meta {
@@ -1519,6 +1686,14 @@ body[data-theme="dark"] .qty-button {
 .auth-card {
   width: min(100%, 430px);
   padding: 1.5rem;
+}
+
+.auth-theme-toggle {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2;
+  box-shadow: var(--shadow-soft);
 }
 
 .login-brand {

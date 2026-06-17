@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="<%= locale %>">
+<html lang="<%= locale %>" data-theme="<%= theme %>">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -104,9 +104,21 @@
             <small><%= appName %> <%= softwareVersion %></small>
             <small>Developed by <%= softwareAuthor %></small>
           </div>
-          <div>
-            <strong><%= currentUser.name %></strong>
-            <small><%= currentUser.role === "admin" ? t("Administrador") : t("Funcionário") %></small>
+          <div class="sidebar-user-profile">
+            <div class="sidebar-user-name">
+              <strong><%= currentUser.name %></strong>
+              <small><%= currentUser.role === "admin" ? t("Administrador") : t("Funcionário") %></small>
+            </div>
+            <div class="theme-switch theme-switch-compact" role="group" aria-label="<%= t('Tema da app') %>">
+              <button type="button" data-theme-option="light" aria-pressed="<%= theme === 'dark' ? 'false' : 'true' %>">
+                <span class="theme-swatch theme-swatch-light" aria-hidden="true"></span>
+                <span><%= t("Claro") %></span>
+              </button>
+              <button type="button" data-theme-option="dark" aria-pressed="<%= theme === 'dark' ? 'true' : 'false' %>">
+                <span class="theme-swatch theme-swatch-dark" aria-hidden="true"></span>
+                <span><%= t("Escuro") %></span>
+              </button>
+            </div>
           </div>
           <form method="post" action="/logout">
             <button class="button ghost full" type="submit"><%= t("Sair") %></button>
@@ -127,6 +139,21 @@
             <span>B</span>
           <% } %>
           <strong><%= appName %></strong>
+        </div>
+        <div class="mobile-header-actions">
+          <button
+            class="theme-icon-button"
+            type="button"
+            data-dark-mode-toggle
+            data-icon-only
+            data-light-mode-label="<%= t('Mudar para modo claro') %>"
+            data-dark-mode-label="<%= t('Mudar para modo escuro') %>"
+            aria-label="<%= theme === 'dark' ? t('Mudar para modo claro') : t('Mudar para modo escuro') %>"
+            aria-pressed="<%= theme === 'dark' ? 'true' : 'false' %>"
+            title="<%= theme === 'dark' ? t('Mudar para modo claro') : t('Mudar para modo escuro') %>"
+          >
+            <span class="theme-icon" aria-hidden="true"></span>
+          </button>
         </div>
       </header>
 

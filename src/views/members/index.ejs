@@ -36,6 +36,7 @@
           <th>Nº Sócio</th>
           <th>Nome</th>
           <th>Email</th>
+          <th>Data de Entrada</th>
           <th>Estado</th>
           <th></th>
         </tr>
@@ -46,6 +47,7 @@
             <td><%= member.member_number %></td>
             <td><%= member.name %></td>
             <td><%= member.email || '---' %></td>
+            <td><%= member.entry_date ? formatDate(member.entry_date) : '---' %></td>
             <td><span class="<%= member.active ? 'pill success' : 'pill muted' %>"><%= member.active ? "Ativo" : "Inativo" %></span></td>
             <td class="actions-cell">
               <% if (currentUser && currentUser.role === 'admin') { %>
@@ -60,7 +62,7 @@
           </tr>
         <% }) %>
         <% if (members.length === 0) { %>
-          <tr><td colspan="5">Sem sócios registados.</td></tr>
+          <tr><td colspan="6">Sem sócios registados.</td></tr>
         <% } %>
       </tbody>
     </table>
