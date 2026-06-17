@@ -1,8 +1,8 @@
 <section class="page-header">
   <div>
     <p class="eyebrow">Clube</p>
-    <h1>Cotas</h1>
-    <p class="text-muted">Gestão de pagamentos de cotas por sócio.</p>
+    <h1>Quotas</h1>
+    <p class="text-muted">Gestão de pagamentos de quotas por sócio.</p>
   </div>
 </section>
 
@@ -20,7 +20,7 @@
 </form>
 
 <% if (currentUser && currentUser.role === 'admin') { %>
-  <form class="panel form-stack" method="post" action="/dues/email-debtors" data-confirm="Enviar email aos sócios com cotas em falta neste ano?">
+  <form class="panel form-stack" method="post" action="/dues/email-debtors" data-confirm="Enviar email aos sócios com quotas em falta neste ano?">
     <div class="panel-header">
       <h2>Email a sócios devedores</h2>
     </div>

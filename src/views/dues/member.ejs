@@ -1,7 +1,7 @@
 <section class="page-header">
   <div>
     <p class="eyebrow">Clube</p>
-    <h1>Pagamento de cotas</h1>
+    <h1>Pagamento de quotas</h1>
     <p class="text-muted"><strong><%= member.member_number %></strong> · <%= member.name %> · Ano <strong><%= year %></strong></p>
   </div>
   <a class="button secondary" href="/dues?year=<%= year %>">Voltar</a>
@@ -19,6 +19,12 @@
   <article class="stat-card warning">
     <span>Em falta</span>
     <strong><%= money(Math.max(0, (expectedAmount || 0) - (paidTotal || 0))) %></strong>
+    <% if (currentUser && currentUser.role === 'admin' && remainingAmount > 0) { %>
+      <form method="post" action="/dues/<%= member.id %>/email-debtor" data-confirm="Enviar email de aviso de quota em falta a este sócio?">
+        <input type="hidden" name="year" value="<%= year %>" />
+        <button class="button secondary full" type="submit">Enviar email de devedor</button>
+      </form>
+    <% } %>
   </article>
 </section>
 
@@ -76,7 +82,7 @@
               <td class="actions-cell">
                 <% if (p.status === 'paid') { %>
                   <% if (currentUser && currentUser.role === 'admin') { %>
-                    <form method="post" action="/dues/payments/<%= p.id %>/cancel" data-confirm="Cancelar este pagamento de cota?">
+                    <form method="post" action="/dues/payments/<%= p.id %>/cancel" data-confirm="Cancelar este pagamento de quota?">
                       <input type="hidden" name="redirect_to" value="/dues/<%= member.id %>?year=<%= year %>" />
                       <input type="password" name="admin_pin" placeholder="PIN admin" inputmode="numeric" autocomplete="one-time-code" required />
                       <button class="button danger" type="submit">Cancelar</button>
@@ -84,7 +90,7 @@
                   <% } else { %>
                     <details class="cancel-details">
                       <summary class="button danger">Cancelar</summary>
-                      <form method="post" action="/dues/payments/<%= p.id %>/cancel" data-confirm="Cancelar este pagamento de cota?">
+                      <form method="post" action="/dues/payments/<%= p.id %>/cancel" data-confirm="Cancelar este pagamento de quota?">
                         <input type="hidden" name="redirect_to" value="/dues/<%= member.id %>?year=<%= year %>" />
                         <input type="password" name="admin_pin" placeholder="PIN admin" inputmode="numeric" autocomplete="one-time-code" required />
                         <button class="button danger" type="submit">Confirmar</button>

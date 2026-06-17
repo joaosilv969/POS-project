@@ -47,9 +47,9 @@
             <summary>Clube</summary>
             <div class="nav-sublist">
               <a class="<%= currentPath.startsWith('/members') ? 'active' : '' %>" href="/members">Sócios</a>
-              <a class="<%= currentPath.startsWith('/dues') ? 'active' : '' %>" href="/dues">Cotas</a>
+              <a class="<%= currentPath.startsWith('/dues') ? 'active' : '' %>" href="/dues">Quotas</a>
               <% if (currentUser && currentUser.role === 'admin') { %>
-                <a class="<%= currentPath.startsWith('/reports/dues') ? 'active' : '' %>" href="/reports/dues">Relatório cotas</a>
+                <a class="<%= currentPath.startsWith('/reports/dues') ? 'active' : '' %>" href="/reports/dues">Relatório de quotas</a>
               <% } %>
             </div>
           </details>

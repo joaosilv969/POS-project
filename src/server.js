@@ -157,6 +157,26 @@ function createDateFormatter(locale = "pt-PT") {
   };
 }
 
+function createDateInputValue(value = null) {
+  if (typeof value === "string") {
+    const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) {
+      return match[1];
+    }
+  }
+
+  const date = value ? (value instanceof Date ? value : new Date(value)) : new Date();
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const year = value instanceof Date ? date.getUTCFullYear() : date.getFullYear();
+  const month = String((value instanceof Date ? date.getUTCMonth() : date.getMonth()) + 1).padStart(2, "0");
+  const day = String(value instanceof Date ? date.getUTCDate() : date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
 function readCookieValue(cookieHeader, key) {
   const source = String(cookieHeader || "");
   if (!source) {
@@ -196,7 +216,7 @@ async function duesAmountForYear(year) {
 }
 
 /**
- * Calcula o valor das cotas a pagar para um sócio num determinado ano
+ * Calcula o valor das quotas a pagar para um sócio num determinado ano
  * Se o sócio entrou no meio do ano, calcula pro-rata
  * @param {number} year - Ano fiscal
  * @param {Object} member - Objeto sócio com propriedade entry_date
@@ -447,6 +467,7 @@ app.use((req, res, next) => {
   res.locals.money = createMoneyFormatter(req.language);
   res.locals.formatDate = createDateFormatter(req.language);
   res.locals.formatDateTime = createDateTimeFormatter(req.language);
+  res.locals.dateInputValue = createDateInputValue;
   res.locals.makePercent = makePercent;
   delete req.session.flash;
   next();
@@ -676,17 +697,17 @@ function buildProductFromRequest(req, fixedProductType = null) {
   };
 }
 
-function dateFilters(query, alias = "s") {
+function dateFilters(query, alias = "s", dateColumn = "created_at") {
   const filters = [];
   const params = [];
 
   if (query.start_date) {
-    filters.push(`${alias}.created_at >= ?`);
+    filters.push(`${alias}.${dateColumn} >= ?`);
     params.push(query.start_date);
   }
 
   if (query.end_date) {
-    filters.push(`${alias}.created_at < DATE_ADD(?, INTERVAL 1 DAY)`);
+    filters.push(`${alias}.${dateColumn} < DATE_ADD(?, INTERVAL 1 DAY)`);
     params.push(query.end_date);
   }
 
@@ -1175,7 +1196,7 @@ app.post(
   requireAdmin,
   asyncRoute(async (req, res) => {
     if (req.session.emailSettingsUnlocked !== true) {
-      flash(req, "error", "Confirme a password de administrador para alterar as configurações de envio.");
+      flash(req, "error", "Confirme a palavra-passe de administrador para alterar as configurações de envio.");
       return res.redirect("/settings/email");
     }
 
@@ -1259,7 +1280,7 @@ app.post(
     }
 
     await appSettings.update({ duesDefaultAmount: amount });
-    flash(req, "success", "Valor default da cota atualizado.");
+    flash(req, "success", "Valor padrão da quota atualizado.");
     return res.redirect("/settings");
   }),
 );
@@ -1283,7 +1304,7 @@ app.post(
       [year, amount],
     );
 
-    flash(req, "success", "Valor da cota atualizado para o ano indicado.");
+    flash(req, "success", "Valor da quota atualizado para o ano indicado.");
     return res.redirect("/settings");
   }),
 );
@@ -1380,7 +1401,7 @@ app.post(
       if (req.file) {
         deleteUpload(req.file.filename);
       }
-      flash(req, "error", "Preencha os campos obrigatorios do produto.");
+      flash(req, "error", "Preencha os campos obrigatórios do produto.");
       return res.redirect("/bar-products/new");
     }
 
@@ -1454,7 +1475,7 @@ app.post(
       if (req.file) {
         deleteUpload(req.file.filename);
       }
-      flash(req, "error", "Preencha os campos obrigatorios do produto (inclui tamanho).");
+      flash(req, "error", "Preencha os campos obrigatórios do produto (inclui tamanho).");
       return res.redirect("/merchandising/new");
     }
 
@@ -1559,7 +1580,7 @@ app.post(
       if (req.file) {
         deleteUpload(req.file.filename);
       }
-      flash(req, "error", "Preencha os campos obrigatorios do produto.");
+      flash(req, "error", "Preencha os campos obrigatórios do produto.");
       return res.redirect(`/products/${productId}/edit`);
     }
 
@@ -2757,6 +2778,7 @@ app.get(
   requireAuth,
   asyncRoute(async (req, res) => {
     const filters = dateFilters(req.query);
+    const duesFilters = dateFilters(req.query, "mdp", "paid_at");
     const cashMethodId = await paymentMethods.getCashPaymentMethodId(1);
 
     const [barCash] = await pool.execute(
@@ -2817,11 +2839,27 @@ app.get(
       filters.params,
     );
 
+    const [duesCash] = await pool.execute(
+      `SELECT COUNT(DISTINCT mdp.id) AS payments_count, SUM(mdp.amount) AS total
+       FROM member_dues_payments mdp
+       WHERE mdp.status = 'paid' AND mdp.payment_method_id = ? ${duesFilters.where}`,
+      [cashMethodId, ...duesFilters.params],
+    );
+
+    const cashClosing = {
+      barTotal: Number((barCash[0] && barCash[0].total) || 0),
+      merchTotal: Number((merchCash[0] && merchCash[0].total) || 0),
+      duesTotal: Number((duesCash[0] && duesCash[0].total) || 0),
+    };
+    cashClosing.registeredCashTotal = cashClosing.barTotal + cashClosing.merchTotal + cashClosing.duesTotal;
+
     res.render("cash-summary", {
       title: "Resumo de caixa",
       filters: req.query,
       barCash: barCash[0] || { sales_count: 0, total: 0 },
       merchCash: merchCash[0] || { sales_count: 0, total: 0 },
+      duesCash: duesCash[0] || { payments_count: 0, total: 0 },
+      cashClosing,
       barOtherPayments,
       merchOtherPayments,
     });
@@ -2946,7 +2984,7 @@ app.post(
     const active = req.body.active ? 1 : 0;
 
     if (!name || !email || password.length < 6) {
-      flash(req, "error", "Preencha nome, email e password com pelo menos 6 caracteres.");
+      flash(req, "error", "Preencha nome, email e palavra-passe com pelo menos 6 caracteres.");
       return res.redirect("/users/new");
     }
 
@@ -3021,7 +3059,7 @@ app.post(
 
     if (password) {
       if (password.length < 6) {
-        flash(req, "error", "A password deve ter pelo menos 6 caracteres.");
+        flash(req, "error", "A palavra-passe deve ter pelo menos 6 caracteres.");
         return res.redirect(`/users/${userId}/edit`);
       }
 
@@ -3122,7 +3160,7 @@ app.get(
     return res.send(`member_number,name,email,active
 1001,Ana Silva,ana@example.com,1
 1002,Bruno Costa,bruno@example.com,1
-1003,Socio Inativo,inativo@example.com,0
+1003,Sócio Inativo,inativo@example.com,0
 `);
   },
 );
@@ -3135,6 +3173,7 @@ app.get(
       title: "Novo sócio",
       member: null,
       action: "/members",
+      defaultEntryDate: createDateInputValue(),
     });
   },
 );
@@ -3300,6 +3339,7 @@ app.get(
       title: "Editar sócio",
       member,
       action: `/members/${member.id}`,
+      defaultEntryDate: "",
     });
   }),
 );
@@ -3379,7 +3419,7 @@ app.get(
       params,
     );
 
-    // Filtrar membros que devem pagar cotas este ano
+    // Filtrar membros que devem pagar quotas este ano
     const membersWithDues = members.filter((m) => memberShouldPayDuesForYear(m, year));
 
     // Calcular o valor pro-rata para cada sócio
@@ -3388,7 +3428,7 @@ app.get(
     }
 
     res.render("dues/index", {
-      title: "Cotas",
+      title: "Quotas",
       year,
       q,
       expectedAmount,
@@ -3410,7 +3450,7 @@ app.post(
     }
 
     if (!expectedAmount || expectedAmount <= 0) {
-      flash(req, "error", "Defina o valor da cota antes de enviar avisos.");
+      flash(req, "error", "Defina o valor da quota antes de enviar avisos.");
       return res.redirect(`/dues?year=${year}`);
     }
 
@@ -3431,7 +3471,7 @@ app.post(
     let failed = 0;
 
     for (const member of members) {
-      // Se não deve pagar cotas este ano, pula
+      // Se não deve pagar quotas este ano, pula
       if (!memberShouldPayDuesForYear(member, year)) {
         skipped += 1;
         continue;
@@ -3505,7 +3545,7 @@ app.get(
     ];
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="devedores-cotas-${year}.csv"`);
+    res.setHeader("Content-Disposition", `attachment; filename="devedores-quotas-${year}.csv"`);
     return res.send(rowsToCsv(columns, debtors));
   }),
 );
@@ -3548,7 +3588,7 @@ app.get(
     const activePaymentMethods = await paymentMethods.getActivePaymentMethods();
 
     res.render("dues/member", {
-      title: "Pagamento de cotas",
+      title: "Pagamento de quotas",
       member,
       year,
       fullExpectedAmount,
@@ -3558,6 +3598,60 @@ app.get(
       payments,
       paymentMethods: activePaymentMethods,
     });
+  }),
+);
+
+app.post(
+  "/dues/:memberId/email-debtor",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    const memberId = parseInteger(req.params.memberId);
+    const year = parseInteger(req.body.year, currentYear());
+
+    const [[member]] = await pool.execute("SELECT * FROM members WHERE id = ? AND active = 1", [memberId]);
+    if (!member) {
+      return res.status(404).render("error", { title: "Sócio não encontrado", message: "O sócio indicado não existe ou está inativo." });
+    }
+
+    if (!emailSettingsConfigured()) {
+      flash(req, "error", "Configure o email de envio antes de enviar o aviso.");
+      return res.redirect(`/dues/${memberId}?year=${year}`);
+    }
+
+    if (!isValidEmail(member.email)) {
+      flash(req, "error", "Este sócio não tem um email válido.");
+      return res.redirect(`/dues/${memberId}?year=${year}`);
+    }
+
+    if (!memberShouldPayDuesForYear(member, year)) {
+      flash(req, "error", "Este sócio não tem quota a pagar neste ano.");
+      return res.redirect(`/dues/${memberId}?year=${year}`);
+    }
+
+    const expectedAmount = await calculateMemberDuesForYear(year, member);
+    const [[totals]] = await pool.execute(
+      `SELECT COALESCE(SUM(amount), 0) AS paid_total
+       FROM member_dues_payments
+       WHERE member_id = ? AND year = ? AND status = 'paid'`,
+      [memberId, year],
+    );
+
+    member.paid_total = totals ? Number(totals.paid_total || 0) : 0;
+    const due = Math.max(0, Number(expectedAmount || 0) - member.paid_total);
+
+    if (due <= 0) {
+      flash(req, "error", "Este sócio não tem valor em falta.");
+      return res.redirect(`/dues/${memberId}?year=${year}`);
+    }
+
+    try {
+      await sendDebtorEmail(member, year, expectedAmount);
+      flash(req, "success", "Email de devedor enviado com sucesso.");
+    } catch (emailError) {
+      flash(req, "error", `Falha ao enviar email de devedor: ${emailError.message}`);
+    }
+
+    return res.redirect(`/dues/${memberId}?year=${year}`);
   }),
 );
 
@@ -3593,7 +3687,7 @@ app.post(
       [memberId, req.session.user.id, paymentMethodId, year, amount, notes],
     );
 
-    flash(req, "success", "Pagamento de cota registado.");
+    flash(req, "success", "Pagamento de quota registado.");
     return res.redirect(`/dues/${memberId}?year=${year}`);
   }),
 );
@@ -3637,7 +3731,7 @@ app.post(
       );
 
       await connection.commit();
-      flash(req, "success", "Pagamento de cota cancelado.");
+      flash(req, "success", "Pagamento de quota cancelado.");
     } catch (error) {
       await connection.rollback();
       flash(req, "error", error.message);
@@ -3848,7 +3942,7 @@ app.get(
       payments: {
         filename: "relatorio-pagamentos.csv",
         columns: [
-          { key: "name", label: "Metodo" },
+          { key: "name", label: "Método" },
           { key: "code", label: "Codigo" },
           { key: "sales_count", label: "Vendas" },
           { key: "total", label: "Total" },
@@ -4180,8 +4274,8 @@ app.get(
       members: {
         filename: "merchandising-socios.csv",
         columns: [
-          { key: "member_number", label: "Numero" },
-          { key: "member_name", label: "Socio" },
+          { key: "member_number", label: "Número" },
+          { key: "member_name", label: "Sócio" },
           { key: "sales_count", label: "Vendas" },
           { key: "quantity", label: "Quantidade" },
           { key: "total", label: "Total" },
@@ -4200,8 +4294,8 @@ app.get(
       matrix: {
         filename: "merchandising-quem-comprou-o-que.csv",
         columns: [
-          { key: "member_number", label: "Numero" },
-          { key: "member_name", label: "Socio" },
+          { key: "member_number", label: "Número" },
+          { key: "member_name", label: "Sócio" },
           { key: "product_name", label: "Produto" },
           { key: "sales_count", label: "Vendas" },
           { key: "quantity", label: "Quantidade" },
@@ -4242,8 +4336,8 @@ app.get(
         columns: [
           { key: "receipt_number", label: "Recibo" },
           { key: "created_at", label: "Data" },
-          { key: "member_number", label: "Numero" },
-          { key: "member_name", label: "Socio" },
+          { key: "member_number", label: "Número" },
+          { key: "member_name", label: "Sócio" },
           { key: "quantity", label: "Quantidade" },
           { key: "total", label: "Total" },
           { key: "payment_method_name", label: "Pagamento" },
@@ -4285,7 +4379,7 @@ app.get(
       payments: {
         filename: "merchandising-pagamentos.csv",
         columns: [
-          { key: "name", label: "Metodo" },
+          { key: "name", label: "Método" },
           { key: "sales_count", label: "Vendas" },
           { key: "total", label: "Total" },
         ],
@@ -4476,7 +4570,7 @@ app.get(
     });
 
     res.render("reports/dues", {
-      title: "Relatório de Cotas",
+      title: "Relatório de quotas",
       filters,
       queryString,
       year,
@@ -4510,13 +4604,13 @@ app.get(
     const type = String(req.params.type || "");
     const exports = {
       paid: {
-        filename: "cotas-socios-pagos.csv",
+        filename: "quotas-socios-pagos.csv",
         columns: [
-          { key: "member_number", label: "Numero" },
-          { key: "name", label: "Socio" },
+          { key: "member_number", label: "Número" },
+          { key: "name", label: "Sócio" },
           { key: "payments_count", label: "Pagamentos" },
           { key: "total", label: "Total" },
-          { key: "last_paid_at", label: "Ultimo pagamento" },
+          { key: "last_paid_at", label: "Último pagamento" },
         ],
         sql: `SELECT m.member_number, m.name, COUNT(*) AS payments_count, SUM(mdp.amount) AS total, MAX(mdp.paid_at) AS last_paid_at
               FROM member_dues_payments mdp
@@ -4528,13 +4622,13 @@ app.get(
         params: [...paymentFilter.params, ...searchFilter.params, expectedAmount],
       },
       outstanding: {
-        filename: "cotas-saldos-em-falta.csv",
+        filename: "quotas-saldos-em-falta.csv",
         columns: [
-          { key: "member_number", label: "Numero" },
-          { key: "name", label: "Socio" },
+          { key: "member_number", label: "Número" },
+          { key: "name", label: "Sócio" },
           { key: "paid_total", label: "Pago" },
           { key: "outstanding", label: "Em falta" },
-          { key: "last_paid_at", label: "Ultimo pagamento" },
+          { key: "last_paid_at", label: "Último pagamento" },
         ],
         sql: `SELECT m.member_number, m.name,
                      COALESCE(SUM(mdp.amount), 0) AS paid_total,
@@ -4550,10 +4644,10 @@ app.get(
         params: [expectedAmount, ...paymentFilter.params, ...searchFilter.params, expectedAmount],
       },
       unpaid: {
-        filename: "cotas-socios-sem-pagamento.csv",
+        filename: "quotas-socios-sem-pagamento.csv",
         columns: [
-          { key: "member_number", label: "Numero" },
-          { key: "name", label: "Socio" },
+          { key: "member_number", label: "Número" },
+          { key: "name", label: "Sócio" },
         ],
         sql: `SELECT m.member_number, m.name
               FROM members m
@@ -4566,9 +4660,9 @@ app.get(
         params: [...searchFilter.params, ...paymentFilter.params],
       },
       methods: {
-        filename: "cotas-metodos-pagamento.csv",
+        filename: "quotas-metodos-pagamento.csv",
         columns: [
-          { key: "name", label: "Metodo" },
+          { key: "name", label: "Método" },
           { key: "payments_count", label: "Pagamentos" },
           { key: "total", label: "Total" },
         ],
@@ -4582,9 +4676,9 @@ app.get(
         params: [...paymentFilter.params, ...searchFilter.params],
       },
       monthly: {
-        filename: "cotas-evolucao-mensal.csv",
+        filename: "quotas-evolucao-mensal.csv",
         columns: [
-          { key: "month", label: "Mes" },
+          { key: "month", label: "Mês" },
           { key: "payments_count", label: "Pagamentos" },
           { key: "total", label: "Total" },
         ],

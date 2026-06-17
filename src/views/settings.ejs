@@ -33,7 +33,7 @@
     </div>
 
     <label>
-      Alerta baixo stock (valor default)
+      Alerta de stock baixo (valor padrão)
       <input type="number" name="default_low_stock_threshold" min="0" step="1" value="<%= typeof defaultLowStockThreshold === 'number' ? defaultLowStockThreshold : 5 %>" />
     </label>
 
@@ -48,7 +48,7 @@
 
   <% if (brandMarkImage) { %>
     <div class="brand-preview">
-      <img src="<%= brandMarkUrl %>" alt="Logotipo atual" />
+      <img src="<%= brandMarkUrl %>" alt="Logótipo atual" />
     </div>
   <% } %>
 
@@ -97,12 +97,12 @@
 
 <section class="panel">
   <div class="panel-header">
-    <h2>Cotas</h2>
+    <h2>Quotas</h2>
   </div>
 
   <form class="form-stack" method="post" action="/settings/dues">
     <label>
-      Valor default da cota
+      Valor padrão da quota
       <input type="number" name="dues_default_amount" min="0" step="0.01" value="<%= duesDefaultAmount || 0 %>" />
     </label>
     <button class="button primary" type="submit">Guardar</button>
@@ -116,7 +116,7 @@
       <input type="number" name="year" min="2000" max="2100" value="<%= new Date().getFullYear() %>" required />
     </label>
     <label>
-      Valor da cota para o ano
+      Valor da quota para o ano
       <input type="number" name="amount" min="0" step="0.01" value="<%= duesDefaultAmount || 0 %>" required />
     </label>
     <button class="button secondary" type="submit">Guardar valor por ano</button>

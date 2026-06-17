@@ -12,10 +12,10 @@ Segue em anexo o PDF com os estatutos do motoclube.
 
 Cumprimentos,
 {appName}`;
-const DEFAULT_DEBTOR_EMAIL_SUBJECT = "Cota em atraso - {year}";
+const DEFAULT_DEBTOR_EMAIL_SUBJECT = "Quota em atraso - {year}";
 const DEFAULT_DEBTOR_EMAIL_BODY = `Olá {memberName},
 
-De acordo com os nossos registos, existe um valor em falta na tua cota de {year}.
+De acordo com os nossos registos, existe um valor em falta na tua quota de {year}.
 
 Valor anual: {expectedAmount}
 Valor pago: {paidTotal}

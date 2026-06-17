@@ -7,7 +7,7 @@
 
 <form class="filter-bar" method="get" action="/reports">
   <label>
-    Inicio
+    Início
     <input type="date" name="start_date" value="<%= filters.start_date || '' %>" />
   </label>
   <label>
@@ -68,7 +68,7 @@
     <div class="panel-header"><h2>Total por pagamento</h2></div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Metodo</th><th>Vendas</th><th>Total</th></tr></thead>
+        <thead><tr><th>Método</th><th>Vendas</th><th>Total</th></tr></thead>
         <tbody>
           <% paymentTotals.forEach((row) => { %>
             <tr><td><%= row.name %></td><td><%= row.sales_count %></td><td><%= money(row.total) %></td></tr>
@@ -104,6 +104,6 @@
   <div class="panel-header"><h2>Outros relatórios</h2></div>
   <div class="button-row">
     <a class="button secondary" href="/reports/merchandising">Relatório de Merchandising</a>
-    <a class="button secondary" href="/reports/dues">Relatório de Cotas</a>
+    <a class="button secondary" href="/reports/dues">Relatório de quotas</a>
   </div>
 </section>
