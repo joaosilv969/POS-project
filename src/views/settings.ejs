@@ -97,6 +97,61 @@
 
 <section class="panel">
   <div class="panel-header">
+    <h2>Backups</h2>
+  </div>
+
+  <form class="form-stack" method="post" action="/settings/backups">
+    <label class="toggle-field">
+      <input type="checkbox" name="auto_backup_on_cash_close" value="1" <%= autoBackupOnCashClose ? 'checked' : '' %> />
+      Fazer backup automático quando fechar a caixa
+    </label>
+
+    <label>
+      Pasta OneDrive / mount point
+      <input name="backup_destination_path" placeholder="Ex.: /app/onedrive-backups" value="<%= backupDestinationPath || '' %>" />
+    </label>
+
+    <p class="form-help">No Docker, monte a pasta OneDrive nesta localização e indique aqui o caminho dentro do container.</p>
+    <button class="button primary" type="submit">Guardar configuração de backups</button>
+  </form>
+
+  <hr />
+
+  <form class="form-stack" method="post" action="/settings/backups/save-now" data-confirm="Gerar e guardar um backup na pasta configurada agora?">
+    <button class="button secondary" type="submit">Guardar backup agora na pasta configurada</button>
+  </form>
+
+  <hr />
+
+  <form class="form-stack" method="post" action="/settings/backups/download" data-confirm="Gerar e descarregar um backup agora?">
+    <p class="text-muted">Inclui base de dados e uploads. Guarde este ficheiro em local seguro.</p>
+    <button class="button primary" type="submit">Descarregar backup</button>
+  </form>
+
+  <hr />
+
+  <form
+    class="form-stack"
+    method="post"
+    action="/settings/backups/import"
+    enctype="multipart/form-data"
+    data-confirm="Importar este backup vai substituir os dados atuais e os uploads. Continuar?"
+  >
+    <label>
+      Importar backup
+      <input type="file" name="backup_file" accept=".json,.gz,.json.gz,application/json,application/gzip" required />
+    </label>
+    <label>
+      Password de administrador
+      <input type="password" name="admin_password" autocomplete="current-password" required />
+    </label>
+    <p class="form-help">A importação substitui a base de dados atual e repõe os uploads/imagens do backup.</p>
+    <button class="button danger" type="submit">Importar backup</button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-header">
     <h2>Quotas</h2>
   </div>
 

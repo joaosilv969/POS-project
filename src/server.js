@@ -20,6 +20,7 @@ const { parseMembersCsv } = require("./members-csv");
 const { currentYear, parseInteger, parseNumber } = require("./lib/parsing");
 const { requireAdmin, requireAuth } = require("./middleware/auth");
 const { createPaymentMethodService } = require("./services/payment-methods");
+const { createBackup, restoreBackup, saveBackupToDirectory } = require("./services/backups");
 const { createTranslator, getSupportedLanguages, normalizeLanguage, translateHtml } = require("./i18n");
 const {
   makePercent,
@@ -48,6 +49,17 @@ const memberCsvUpload = multer({
     const extension = path.extname(String(file.originalname || "")).toLowerCase();
     if (extension !== ".csv" && extension !== ".txt") {
       return cb(new Error(req.t ? req.t("O ficheiro deve ser um CSV.") : "O ficheiro deve ser um CSV."));
+    }
+    return cb(null, true);
+  },
+});
+const backupImportUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: Number(process.env.BACKUP_IMPORT_MAX_MB || 512) * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const filename = String(file.originalname || "").toLowerCase();
+    if (!filename.endsWith(".json") && !filename.endsWith(".json.gz")) {
+      return cb(new Error("O ficheiro deve ser um backup .json ou .json.gz."));
     }
     return cb(null, true);
   },
@@ -194,6 +206,18 @@ function withDefaultDateRange(query = {}) {
     start_date: isDateInputValue(query.start_date) ? query.start_date : today,
     end_date: isDateInputValue(query.end_date) ? query.end_date : today,
   };
+}
+
+function isPathInside(parentPath, childPath) {
+  const relativePath = path.relative(path.resolve(parentPath), path.resolve(childPath));
+  return relativePath === "" || (relativePath && !relativePath.startsWith("..") && !path.isAbsolute(relativePath));
+}
+
+function validateBackupDestinationPath(destinationPath) {
+  const normalizedPath = String(destinationPath || "").trim();
+  if (normalizedPath && isPathInside(uploadDir, normalizedPath)) {
+    throw new Error("A pasta de backups deve ficar fora da pasta de uploads.");
+  }
 }
 
 function readCookieValue(cookieHeader, key) {
@@ -511,6 +535,17 @@ function uploadMemberCsv(req, res, next) {
   });
 }
 
+function uploadBackupImport(req, res, next) {
+  backupImportUpload.single("backup_file")(req, res, (error) => {
+    if (error) {
+      flash(req, "error", error.message);
+      return res.redirect("/settings");
+    }
+
+    return next();
+  });
+}
+
 function uploadStatutesPdf(req, res, next) {
   statutesPdfUpload.single("statutes_pdf")(req, res, (error) => {
     if (error) {
@@ -647,6 +682,24 @@ async function sendQuotaPaymentReceivedEmail(member, payment) {
   });
 
   return { sent: true };
+}
+
+async function createConfiguredBackup(user) {
+  validateBackupDestinationPath(appSettings.backupDestinationPath());
+
+  const backup = await createBackup({
+    pool,
+    uploadDir,
+    appName: appSettings.appName(),
+    softwareVersion,
+    user,
+  });
+  const savedBackup = await saveBackupToDirectory(backup, appSettings.backupDestinationPath());
+
+  return {
+    ...backup,
+    ...savedBackup,
+  };
 }
 
 async function getActiveCategories(scope = "bar") {
@@ -1125,6 +1178,8 @@ app.get(
       brandMarkImage: appSettings.brandMarkImage() || null,
       appName: appSettings.appName(),
       appSubtitle: appSettings.appSubtitle(),
+      autoBackupOnCashClose: appSettings.autoBackupOnCashClose(),
+      backupDestinationPath: appSettings.backupDestinationPath(),
       defaultLowStockThreshold: appSettings.defaultLowStockThreshold(),
       receiptPrefixBar: appSettings.receiptPrefixBar(),
       receiptPrefixMerchandising: appSettings.receiptPrefixMerchandising(),
@@ -1150,6 +1205,133 @@ app.get(
       statutesPdfFile: appSettings.statutesPdfFile(),
     });
   },
+);
+
+app.post(
+  "/settings/backups/download",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    try {
+      const backup = await createBackup({
+        pool,
+        uploadDir,
+        appName: appSettings.appName(),
+        softwareVersion,
+        user: req.session.user,
+      });
+
+      res.setHeader("Content-Type", "application/gzip");
+      res.setHeader("Content-Disposition", `attachment; filename="${backup.filename}"`);
+      res.setHeader("Cache-Control", "no-store");
+      return res.send(backup.buffer);
+    } catch (error) {
+      flash(req, "error", `Não foi possível gerar o backup: ${error.message}`);
+      return res.redirect("/settings");
+    }
+  }),
+);
+
+app.post(
+  "/settings/backups",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    const autoBackupOnCashClose = req.body.auto_backup_on_cash_close ? 1 : 0;
+    const backupDestinationPath = String(req.body.backup_destination_path || "").trim();
+
+    if (autoBackupOnCashClose && !backupDestinationPath) {
+      flash(req, "error", "Indique a pasta OneDrive para ativar o backup automático.");
+      return res.redirect("/settings");
+    }
+
+    if (backupDestinationPath && !path.isAbsolute(backupDestinationPath)) {
+      flash(req, "error", "A pasta OneDrive tem de ser um caminho absoluto.");
+      return res.redirect("/settings");
+    }
+
+    try {
+      validateBackupDestinationPath(backupDestinationPath);
+    } catch (error) {
+      flash(req, "error", error.message);
+      return res.redirect("/settings");
+    }
+
+    await appSettings.update({
+      autoBackupOnCashClose,
+      backupDestinationPath,
+    });
+
+    flash(req, "success", "Configuração de backups atualizada.");
+    return res.redirect("/settings");
+  }),
+);
+
+app.post(
+  "/settings/backups/save-now",
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    try {
+      const savedBackup = await createConfiguredBackup(req.session.user);
+      flash(req, "success", `Backup guardado em ${savedBackup.filePath}.`);
+    } catch (error) {
+      flash(req, "error", `Não foi possível guardar o backup na pasta configurada: ${error.message}`);
+    }
+
+    return res.redirect("/settings");
+  }),
+);
+
+app.post(
+  "/settings/backups/import",
+  requireAdmin,
+  uploadBackupImport,
+  asyncRoute(async (req, res) => {
+    if (!req.file) {
+      flash(req, "error", "Selecione o ficheiro de backup para importar.");
+      return res.redirect("/settings");
+    }
+
+    const adminPassword = String(req.body.admin_password || "");
+    const currentUserId = req.session.user.id;
+    const [[adminUser]] = await pool.execute("SELECT password_hash FROM users WHERE id = ? AND role = 'admin' AND active = 1", [
+      currentUserId,
+    ]);
+
+    if (!adminUser || !(await bcrypt.compare(adminPassword, adminUser.password_hash))) {
+      flash(req, "error", "Password de administrador inválida.");
+      return res.redirect("/settings");
+    }
+
+    try {
+      const result = await restoreBackup({
+        pool,
+        uploadDir,
+        buffer: req.file.buffer,
+      });
+      await appSettings.hydrate();
+      paymentMethods.clearCache();
+
+      const [[restoredUser]] = await pool.execute(
+        "SELECT id, name, email, role FROM users WHERE id = ? AND role = 'admin' AND active = 1",
+        [currentUserId],
+      );
+
+      if (!restoredUser) {
+        return req.session.destroy(() => res.redirect("/login"));
+      }
+
+      req.session.user = {
+        id: restoredUser.id,
+        name: restoredUser.name,
+        email: restoredUser.email,
+        role: restoredUser.role,
+      };
+      flash(req, "success", `Backup importado. ${result.tableCount} tabelas e ${result.uploadFileCount} ficheiros repostos.`);
+      return res.redirect("/settings");
+    } catch (error) {
+      flash(req, "error", `Não foi possível importar o backup: ${error.message}`);
+      return res.redirect("/settings");
+    }
+  }),
 );
 
 app.post(
@@ -3012,7 +3194,20 @@ app.post(
       ],
     );
 
-    flash(req, Math.abs(differenceAmount) < 0.01 ? "success" : "error", `Fecho de caixa registado. Diferença: ${res.locals.money(differenceAmount)}.`);
+    const closingFlashType = Math.abs(differenceAmount) < 0.01 ? "success" : "error";
+    const closingMessage = `Fecho de caixa registado. Diferença: ${res.locals.money(differenceAmount)}.`;
+
+    if (appSettings.autoBackupOnCashClose()) {
+      try {
+        const savedBackup = await createConfiguredBackup(req.session.user);
+        flash(req, closingFlashType, `${closingMessage} Backup guardado em ${savedBackup.filePath}.`);
+      } catch (error) {
+        flash(req, "error", `${closingMessage} Backup automático falhou: ${error.message}`);
+      }
+    } else {
+      flash(req, closingFlashType, closingMessage);
+    }
+
     return res.redirect(redirectTo);
   }),
 );

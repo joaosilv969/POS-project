@@ -46,10 +46,14 @@ function normalizeSettings(source = {}) {
   const language = String(source.language || "").trim() || "pt-PT";
   const brandMarkImage = String(source.brandMarkImage || "").trim() || null;
   const smtpPort = Number.parseInt(source.smtpPort, 10);
+  const autoBackupOnCashClose =
+    String(source.autoBackupOnCashClose || "") === "1" || source.autoBackupOnCashClose === true ? 1 : 0;
 
   return {
     appName,
     appSubtitle,
+    autoBackupOnCashClose,
+    backupDestinationPath: String(source.backupDestinationPath || "").trim(),
     defaultLowStockThreshold:
       Number.isFinite(defaultLowStockThreshold) && defaultLowStockThreshold >= 0 ? defaultLowStockThreshold : 5,
     receiptPrefixBar: validReceiptPrefix(source.receiptPrefixBar, "V"),
@@ -110,6 +114,8 @@ function createAppSettingsStore({ pool }) {
   return {
     appName: () => cache.appName,
     appSubtitle: () => cache.appSubtitle,
+    autoBackupOnCashClose: () => cache.autoBackupOnCashClose,
+    backupDestinationPath: () => cache.backupDestinationPath,
     brandMarkImage: () => cache.brandMarkImage,
     defaultLowStockThreshold: () => cache.defaultLowStockThreshold,
     duesDefaultAmount: () => cache.duesDefaultAmount,
